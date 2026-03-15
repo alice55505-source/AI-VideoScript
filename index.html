@@ -1339,12 +1339,11 @@ async function synthesizeSceneVideo(rowId){
   setStatus('⏳ 準備音頻資料...', 'var(--amber)');
 
   try {
-    // 配音 blob → base64，用 XHR 相容 file:// 本機環境
-    var audioBase64 = null;
-    try {
-      audioBase64 = await new Promise(function(resolve, reject){
+    // 通用 blob/URL → base64 轉換函式
+    function urlToBase64(url){
+      return new Promise(function(resolve, reject){
         var xhr = new XMLHttpRequest();
-        xhr.open('GET', r.voiceAudio, true);
+        xhr.open('GET', url, true);
         xhr.responseType = 'blob';
         xhr.onload = function(){
           var reader = new FileReader();
@@ -1355,14 +1354,32 @@ async function synthesizeSceneVideo(rowId){
         xhr.onerror = reject;
         xhr.send();
       });
+    }
+
+    // 配音 blob → base64
+    var audioBase64 = null;
+    try {
+      audioBase64 = await urlToBase64(r.voiceAudio);
     } catch(e){ throw new Error('音頻轉換失敗：'+e.message); }
+
+    // 影片 blob → base64（blob: URL 無法被 n8n 伺服器存取，必須轉換）
+    setStatus('⏳ 準備影片資料（可能需要數秒）...', 'var(--amber)');
+    var videoBase64 = null;
+    var videoUrlForN8n = r.videoPreview;
+    if(r.videoPreview && r.videoPreview.startsWith('blob:')){
+      try {
+        videoBase64 = await urlToBase64(r.videoPreview);
+        videoUrlForN8n = null; // 已轉 base64，不需再送 URL
+      } catch(e){ throw new Error('影片轉換失敗：'+e.message); }
+    }
 
     setStatus('⏳ 傳送到 n8n 合成中（請稍候）...', 'var(--cyan)');
 
     var payload = {
       id:          r.id,
       sceneType:   r.sceneType,
-      video_url:   r.videoPreview,
+      video_url:   videoUrlForN8n,
+      videoBase64: videoBase64,
       audioBase64: audioBase64,
       dialog:      r.dialog || ''
     };

@@ -958,8 +958,10 @@ function makeRow(r){
 
   frag.appendChild(tr);
 
-  // preview row
-  if((r.videoStatus==='done'&&r.videoPreview)||(r.voiceStatus==='done')||(r.videoStatus==='error')||(r.voiceStatus==='error')){
+  // preview row：對話模式不顯示（素材庫才有），其他類型正常顯示
+  var showPreview = (r.sceneType !== '對話模式') &&
+    ((r.videoStatus==='done'&&r.videoPreview)||(r.voiceStatus==='done'&&r.voiceAudio)||(r.videoStatus==='error')||(r.voiceStatus==='error'));
+  if(showPreview){
     var prev = document.createElement('tr');
     prev.className='preview-row';
     prev.id='prev-'+r.id;
@@ -1117,7 +1119,8 @@ function setRowState(r, type, status){
   if(old){
     var oldPrev = document.getElementById('prev-'+r.id);
     if(oldPrev) oldPrev.remove();
-    if((r.videoStatus==='done'&&r.videoPreview)||(r.voiceStatus==='done')||(r.videoStatus==='error')||(r.voiceStatus==='error')||(r.voiceLines&&r.voiceLines.length)){
+    if((r.sceneType !== '對話模式') &&
+       ((r.videoStatus==='done'&&r.videoPreview)||(r.voiceStatus==='done'&&r.voiceAudio)||(r.videoStatus==='error')||(r.voiceStatus==='error'))){
       var prev = document.createElement('tr');
       prev.className='preview-row'; prev.id='prev-'+r.id;
       prev.innerHTML = '<td colspan="9"><div class="preview-cell">'+renderPreview(r)+'</div></td>';
@@ -1197,13 +1200,13 @@ function renderAssets(){
     // ── 下載按鈕 ──
     html += '<div style="display:flex;flex-wrap:wrap;gap:6px">';
 
-    // 真實影片 / 動畫：有影片+配音 → 顯示合成按鈕
+    // 真實影片 / 動畫：有影片+配音 → 顯示重新合成按鈕
     if(r.sceneType !== '對話模式' && hasVideo && hasAudio){
       html += '<button onclick="synthesizeSceneVideo(\''+r.id+'\')" id="synth-btn-'+r.id+'" '+
         'style="display:inline-flex;align-items:center;gap:5px;padding:5px 14px;border-radius:6px;'+
-        'border:1px solid rgba(34,211,238,0.4);background:rgba(34,211,238,0.12);color:var(--cyan);'+
-        'font-size:10px;font-weight:700;cursor:pointer;width:100%;justify-content:center;margin-bottom:4px">'+
-        '🎬 合成完整影片</button>';
+        'border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);color:var(--muted);'+
+        'font-size:10px;font-weight:600;cursor:pointer;width:100%;justify-content:center;margin-bottom:4px">'+
+        '🔄 重新合成</button>';
       html += '<div id="synth-status-'+r.id+'" style="font-size:10px;color:var(--muted);margin-bottom:4px;min-height:14px;width:100%"></div>';
       if(r.synthVideoUrl){
         html += '<a href="'+r.synthVideoUrl+'" download="'+r.id+'_full.mp4" '+
@@ -1211,6 +1214,13 @@ function renderAssets(){
           'background:rgba(34,211,238,0.18);border:1px solid rgba(34,211,238,0.5);color:var(--cyan);'+
           'font-size:11px;font-weight:700;text-decoration:none;width:100%;justify-content:center;margin-bottom:4px">'+
           '⬇ 下載完整影片（MP4）</a>';
+        if(r.synthSrtUrl){
+          html += '<a href="'+r.synthSrtUrl+'" download="'+r.id+'.srt" '+
+            'style="display:inline-flex;align-items:center;gap:5px;padding:5px 14px;border-radius:6px;'+
+            'background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.3);color:var(--amber);'+
+            'font-size:10px;font-weight:700;text-decoration:none;width:100%;justify-content:center;margin-bottom:4px">'+
+            '⬇ 下載字幕（SRT）</a>';
+        }
       }
     }
 
@@ -1236,18 +1246,24 @@ function renderAssets(){
       // 合成按鈕
       html += '<button onclick="synthesizeDialogVideo(\''+r.id+'\')" id="synth-btn-'+r.id+'" '+
         'style="display:inline-flex;align-items:center;gap:5px;padding:5px 14px;border-radius:6px;'+
-        'border:1px solid rgba(34,211,238,0.4);background:rgba(34,211,238,0.12);color:var(--cyan);'+
-        'font-size:10px;font-weight:700;cursor:pointer;width:100%;justify-content:center;margin-bottom:6px"'+
-        (allReady?'':' title="需等所有配音完成"')+
-        '>🎬 合成完整影片檔案</button>';
+        'border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);color:var(--muted);'+
+        'font-size:10px;font-weight:600;cursor:pointer;width:100%;justify-content:center;margin-bottom:6px">'+
+        '🔄 重新合成</button>';
       html += '<div id="synth-status-'+r.id+'" style="font-size:10px;color:var(--muted);margin-bottom:6px;min-height:14px"></div>';
       // 合成結果下載（若已合成）
       if(r.synthVideoUrl){
         html += '<a href="'+r.synthVideoUrl+'" download="'+r.id+'_full.mp4" '+
           'style="display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:6px;'+
           'background:rgba(34,211,238,0.18);border:1px solid rgba(34,211,238,0.5);color:var(--cyan);'+
-          'font-size:11px;font-weight:700;text-decoration:none;width:100%;justify-content:center;margin-bottom:6px">'+
+          'font-size:11px;font-weight:700;text-decoration:none;width:100%;justify-content:center;margin-bottom:4px">'+
           '⬇ 下載完整影片（MP4）</a>';
+        if(r.synthSrtUrl){
+          html += '<a href="'+r.synthSrtUrl+'" download="'+r.id+'.srt" '+
+            'style="display:inline-flex;align-items:center;gap:5px;padding:5px 14px;border-radius:6px;'+
+            'background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.3);color:var(--amber);'+
+            'font-size:10px;font-weight:700;text-decoration:none;width:100%;justify-content:center;margin-bottom:6px">'+
+            '⬇ 下載字幕（SRT）</a>';
+        }
       }
       // 逐句下載
       r.voiceLines.forEach(function(line, i){
@@ -1323,26 +1339,32 @@ async function synthesizeSceneVideo(rowId){
   setStatus('⏳ 準備音頻資料...', 'var(--amber)');
 
   try {
-    // 配音 blob → base64
+    // 配音 blob → base64，用 XHR 相容 file:// 本機環境
     var audioBase64 = null;
     try {
-      var ablob = await fetch(r.voiceAudio).then(function(res){ return res.blob(); });
       audioBase64 = await new Promise(function(resolve, reject){
-        var reader = new FileReader();
-        reader.onload = function(e){ resolve(e.target.result.split(',')[1]); };
-        reader.onerror = reject;
-        reader.readAsDataURL(ablob);
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', r.voiceAudio, true);
+        xhr.responseType = 'blob';
+        xhr.onload = function(){
+          var reader = new FileReader();
+          reader.onload = function(e){ resolve(e.target.result.split(',')[1]); };
+          reader.onerror = reject;
+          reader.readAsDataURL(xhr.response);
+        };
+        xhr.onerror = reject;
+        xhr.send();
       });
     } catch(e){ throw new Error('音頻轉換失敗：'+e.message); }
 
     setStatus('⏳ 傳送到 n8n 合成中（請稍候）...', 'var(--cyan)');
 
     var payload = {
-      id:         r.id,
-      sceneType:  r.sceneType,   // '真實影片' 或 '動畫'
-      video_url:  r.videoPreview,
+      id:          r.id,
+      sceneType:   r.sceneType,
+      video_url:   r.videoPreview,
       audioBase64: audioBase64,
-      dialog:     r.dialog || ''
+      dialog:      r.dialog || ''
     };
 
     var res = await fetch(webhook, {
@@ -1353,26 +1375,47 @@ async function synthesizeSceneVideo(rowId){
 
     if(!res.ok) throw new Error('n8n 回傳錯誤 HTTP ' + res.status);
 
-    var data = await res.json();
-    if(!data.videoBase64) throw new Error('n8n 未回傳影片資料');
+    var ct2 = res.headers.get('content-type') || '';
+    var videoUrl2, srtUrl2;
 
-    // base64 → Blob URL
-    var bytes = atob(data.videoBase64);
-    var arr   = new Uint8Array(bytes.length);
-    for(var b=0; b<bytes.length; b++) arr[b] = bytes.charCodeAt(b);
-    var videoBlob = new Blob([arr], { type: 'video/mp4' });
-    var videoUrl  = URL.createObjectURL(videoBlob);
+    if(ct2.includes('video') || ct2.includes('octet-stream')){
+      videoUrl2 = URL.createObjectURL(await res.blob());
+    } else {
+      var text2 = await res.text();
+      if(!text2 || !text2.trim()) throw new Error('n8n 回傳空回應，請確認 workflow 已 Publish');
+      var data2;
+      try { data2 = JSON.parse(text2); } catch(e){ throw new Error('n8n 回傳非 JSON：' + text2.substring(0,120)); }
 
-    r.synthVideoUrl = videoUrl;
+      // 相容 video_base64 或 videoBase64，以及陣列包裝
+      var vb64b = data2.videoBase64 || data2.video_base64 || (Array.isArray(data2) && (data2[0].videoBase64 || data2[0].video_base64));
+      if(!vb64b) throw new Error('n8n 未回傳影片資料，回傳內容：' + JSON.stringify(data2).substring(0,150));
+
+      var bytes2 = atob(vb64b);
+      var arr2   = new Uint8Array(bytes2.length);
+      for(var b2=0; b2<bytes2.length; b2++) arr2[b2] = bytes2.charCodeAt(b2);
+      videoUrl2 = URL.createObjectURL(new Blob([arr2], { type:'video/mp4' }));
+
+      var sb64b = data2.srtBase64 || data2.srt_base64 || (Array.isArray(data2) && (data2[0].srtBase64 || data2[0].srt_base64));
+      if(sb64b){
+        srtUrl2 = URL.createObjectURL(new Blob([atob(sb64b)], { type:'text/plain;charset=utf-8' }));
+      }
+    }
+
+    r.synthVideoUrl = videoUrl2;
+    if(srtUrl2) r.synthSrtUrl = srtUrl2;
     setStatus('✅ 合成完成！', 'var(--green)');
 
-    // 自動下載
+    // 下載影片
     var a = document.createElement('a');
-    a.href     = videoUrl;
-    a.download = (data.filename || r.id + '_full.mp4');
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    a.href = videoUrl2; a.download = r.id + '_full.mp4';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+
+    // 下載 SRT
+    if(srtUrl2){
+      var b = document.createElement('a');
+      b.href = srtUrl2; b.download = r.id + '.srt';
+      document.body.appendChild(b); b.click(); document.body.removeChild(b);
+    }
 
     renderAssets();
 
@@ -1401,21 +1444,29 @@ async function synthesizeDialogVideo(rowId){
   setStatus('⏳ 準備音頻資料...', 'var(--amber)');
 
   try {
-    // 把每句 audioUrl (blob:) 轉成 base64
+    // blob: URL → base64，用 XMLHttpRequest 相容 file:// 本機環境
+    function blobUrlToBase64(url){
+      return new Promise(function(resolve, reject){
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', url, true);
+        xhr.responseType = 'blob';
+        xhr.onload = function(){
+          var reader = new FileReader();
+          reader.onload = function(e){ resolve(e.target.result.split(',')[1]); };
+          reader.onerror = reject;
+          reader.readAsDataURL(xhr.response);
+        };
+        xhr.onerror = reject;
+        xhr.send();
+      });
+    }
+
     var lines = [];
     for(var i=0; i<r.voiceLines.length; i++){
       var line = r.voiceLines[i];
       var audioBase64 = null;
       if(line.audioUrl){
-        try {
-          var blob = await fetch(line.audioUrl).then(function(res){ return res.blob(); });
-          audioBase64 = await new Promise(function(resolve, reject){
-            var reader = new FileReader();
-            reader.onload = function(e){ resolve(e.target.result.split(',')[1]); };
-            reader.onerror = reject;
-            reader.readAsDataURL(blob);
-          });
-        } catch(e){ /* 跳過失敗的句子 */ }
+        try { audioBase64 = await blobUrlToBase64(line.audioUrl); } catch(e){ /* 跳過 */ }
       }
       lines.push({ speaker: line.speaker, dialog: line.dialog, audioBase64: audioBase64 });
     }
@@ -1423,10 +1474,10 @@ async function synthesizeDialogVideo(rowId){
     setStatus('⏳ 傳送到 n8n 合成中（請稍候，可能需要 30~120 秒）...', 'var(--cyan)');
 
     var payload = {
-      id:             r.id,
-      sceneType:      '對話模式',
+      id:              r.id,
+      sceneType:       '對話模式',
       assetsSessionId: CFG.assetsSessionId || null,
-      lines:          lines
+      lines:           lines
     };
 
     var res = await fetch(webhook, {
@@ -1437,28 +1488,52 @@ async function synthesizeDialogVideo(rowId){
 
     if(!res.ok) throw new Error('n8n 回傳錯誤 HTTP ' + res.status);
 
-    var data = await res.json();
-    if(!data.videoBase64) throw new Error('n8n 未回傳影片資料（' + JSON.stringify(data).substring(0,80) + '）');
+    var ct = res.headers.get('content-type') || '';
+    var videoUrl, srtUrl;
 
-    // base64 → Blob URL
-    var bytes = atob(data.videoBase64);
-    var arr   = new Uint8Array(bytes.length);
-    for(var b=0; b<bytes.length; b++) arr[b] = bytes.charCodeAt(b);
-    var videoBlob = new Blob([arr], { type: 'video/mp4' });
-    var videoUrl  = URL.createObjectURL(videoBlob);
+    if(ct.includes('video') || ct.includes('octet-stream')){
+      // n8n 直接回傳 binary MP4
+      var videoBlob = await res.blob();
+      videoUrl = URL.createObjectURL(videoBlob);
+    } else {
+      // JSON 模式：{ videoBase64, srtBase64, filename, srtFilename }
+      var text = await res.text();
+      if(!text || !text.trim()) throw new Error('n8n 回傳空回應，請確認 workflow 已 Publish');
+      var data;
+      try { data = JSON.parse(text); } catch(e){ throw new Error('n8n 回傳非 JSON：' + text.substring(0,120)); }
 
-    // 存到 row
+      // 相容 video_base64 或 videoBase64
+      var vb64 = data.videoBase64 || data.video_base64 || (Array.isArray(data) && (data[0].videoBase64 || data[0].video_base64));
+      if(!vb64) throw new Error('n8n 未回傳影片資料，回傳內容：' + JSON.stringify(data).substring(0,150));
+
+      var bytes = atob(vb64);
+      var arr   = new Uint8Array(bytes.length);
+      for(var b=0; b<bytes.length; b++) arr[b] = bytes.charCodeAt(b);
+      videoUrl = URL.createObjectURL(new Blob([arr], { type:'video/mp4' }));
+
+      // 相容 srt_base64 或 srtBase64
+      var sb64 = data.srtBase64 || data.srt_base64 || (Array.isArray(data) && (data[0].srtBase64 || data[0].srt_base64));
+      if(sb64){
+        srtUrl = URL.createObjectURL(new Blob([atob(sb64)], { type:'text/plain;charset=utf-8' }));
+      }
+    }
+
     r.synthVideoUrl = videoUrl;
+    if(srtUrl) r.synthSrtUrl = srtUrl;
 
     setStatus('✅ 合成完成！', 'var(--green)');
 
-    // 直接觸發下載
+    // 下載影片
     var a = document.createElement('a');
-    a.href     = videoUrl;
-    a.download = (data.filename || r.id + '_full.mp4');
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    a.href = videoUrl; a.download = r.id + '_full.mp4';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+
+    // 下載 SRT
+    if(srtUrl){
+      var b = document.createElement('a');
+      b.href = srtUrl; b.download = r.id + '.srt';
+      document.body.appendChild(b); b.click(); document.body.removeChild(b);
+    }
 
     // 重新渲染素材庫以顯示下載按鈕
     renderAssets();
@@ -1677,6 +1752,13 @@ async function runDialogVoices(r){
     }
     r.voiceAudio = (r.voiceLines.find(function(l){return l.audioUrl;})||{}).audioUrl || null;
     setRowState(r,'voice','done');
+    // 自動合成影片
+    if(CFG.composeWebhook){
+      synthesizeDialogVideo(r.id);
+    } else {
+      var cell = document.getElementById('status-'+r.id);
+      if(cell) cell.innerHTML += '<br><span onclick="switchTab(\'assets\')" style="font-size:9px;color:var(--cyan);cursor:pointer;text-decoration:underline">→ 素材庫合成</span>';
+    }
   } catch(e){
     r.voiceError = e.message;
     setRowState(r,'voice','error');
@@ -1724,6 +1806,10 @@ async function runVoice(r, targetRow, role){
     if(!audioUrl) throw new Error('未取得音頻 URL');
     targetRow.voiceAudio = audioUrl;
     setRowState(targetRow,'voice','done');
+    // 若影片也完成，自動合成
+    if(CFG.composeWebhook && targetRow.videoStatus==='done' && targetRow.videoPreview){
+      synthesizeSceneVideo(targetRow.id);
+    }
   } catch(e){
     setRowState(targetRow,'voice','error', e.message);
   }
@@ -1828,6 +1914,9 @@ async function runVideo(r){
       r.videoPixabayUrl = pick.pageURL;
       r.videoAuthor     = pick.user;
       setRowState(r,'video','done');
+      if(CFG.composeWebhook && r.voiceStatus==='done' && r.voiceAudio){
+        synthesizeSceneVideo(r.id);
+      }
 
     } else {
       // ── 真實影片 → Pexels ──
@@ -1846,6 +1935,9 @@ async function runVideo(r){
       r.videoPhotographer = pick.user&&pick.user.name;
       r.videoPexelsUrl    = pick.url;
       setRowState(r,'video','done');
+      if(CFG.composeWebhook && r.voiceStatus==='done' && r.voiceAudio){
+        synthesizeSceneVideo(r.id);
+      }
     }
   } catch(e) {
     r.videoError = e.message;

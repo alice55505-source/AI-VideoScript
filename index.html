@@ -1238,6 +1238,28 @@ function renderAssets(){
         'font-size:10px;font-weight:600;text-decoration:none">⬇ 配音</a>';
     }
 
+    // ── 本機合成（真實影片/動畫，有影片+配音）──
+    if(r.sceneType !== '對話模式' && hasVideo && hasAudio){
+      html += '</div>';  // close flex
+      html += '<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.06)">';
+      html += '<div style="font-size:9px;font-weight:700;color:rgba(34,211,238,0.5);letter-spacing:1.2px;text-transform:uppercase;margin-bottom:6px;font-family:var(--font-mono)">本機合成</div>';
+      html += '<button onclick="composeShotLocally(\''+r.id+'\')" id="local-synth-btn-'+r.id+'" '+
+        'style="display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:6px;'+
+        'border:1px solid rgba(34,211,238,0.35);background:rgba(34,211,238,0.08);color:var(--cyan);'+
+        'font-size:11px;font-weight:700;cursor:pointer;width:100%;justify-content:center;margin-bottom:4px">'+
+        '🎬 合成影片（畫面+配音）</button>';
+      html += '<div id="local-synth-status-'+r.id+'" style="font-size:10px;color:var(--muted);min-height:14px;margin-bottom:4px"></div>';
+      if(r.localSynthUrl){
+        html += '<a href="'+r.localSynthUrl+'" download="'+r.id+'_local.'+(r.localSynthExt||'webm')+'" '+
+          'style="display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:6px;'+
+          'background:rgba(34,211,238,0.18);border:1px solid rgba(34,211,238,0.5);color:var(--cyan);'+
+          'font-size:11px;font-weight:700;text-decoration:none;width:100%;justify-content:center">'+
+          '⬇ 下載合成影片（'+(r.localSynthExt||'webm').toUpperCase()+'）</a>';
+      }
+      html += '</div>';
+      html += '<div style="display:flex;flex-wrap:wrap;gap:6px">';  // reopen flex (closed below)
+    }
+
     // 對話模式：合成完整影片 + 逐句下載
     if(r.sceneType==='對話模式' && hasLines){
       var readyLines = r.voiceLines.filter(function(l){return l.audioUrl;}).length;
@@ -1275,6 +1297,30 @@ function renderAssets(){
           'font-size:10px;font-weight:600;text-decoration:none;color:'+spkColor+'">'+
           '⬇ '+line.speaker+(i+1)+'</a>';
       });
+
+      // ── 本機合成（對話模式）──
+      html += '</div>';  // close flex
+      html += '<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.06)">';
+      html += '<div style="font-size:9px;font-weight:700;color:rgba(167,139,250,0.6);letter-spacing:1.2px;text-transform:uppercase;margin-bottom:6px;font-family:var(--font-mono)">本機合成</div>';
+      var hasLocalAudio = r.voiceLines.some(function(l){ return l.audioUrl; });
+      var hasPV = PLAYER_VIDEOS.a.talk||PLAYER_VIDEOS.a.idle||PLAYER_VIDEOS.b.talk||PLAYER_VIDEOS.b.idle;
+      var localNote = hasPV ? '將使用 AB 設定中的角色素材' : '無角色素材時顯示說話角色標示';
+      html += '<button onclick="composeShotLocally(\''+r.id+'\')" id="local-synth-btn-'+r.id+'" '+(hasLocalAudio?'':'disabled ')+
+        'style="display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:6px;'+
+        'border:1px solid rgba(167,139,250,0.35);background:rgba(167,139,250,0.08);color:var(--violet);'+
+        'font-size:11px;font-weight:700;cursor:pointer;width:100%;justify-content:center;margin-bottom:4px">'+
+        '🎬 合成對話影片（本機）</button>';
+      html += '<div style="font-size:9px;color:var(--muted);margin-bottom:4px">'+localNote+'</div>';
+      html += '<div id="local-synth-status-'+r.id+'" style="font-size:10px;color:var(--muted);min-height:14px;margin-bottom:4px"></div>';
+      if(r.localSynthUrl){
+        html += '<a href="'+r.localSynthUrl+'" download="'+r.id+'_local.'+(r.localSynthExt||'webm')+'" '+
+          'style="display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:6px;'+
+          'background:rgba(167,139,250,0.18);border:1px solid rgba(167,139,250,0.5);color:var(--violet);'+
+          'font-size:11px;font-weight:700;text-decoration:none;width:100%;justify-content:center">'+
+          '⬇ 下載合成影片（'+(r.localSynthExt||'webm').toUpperCase()+'）</a>';
+      }
+      html += '</div>';
+      html += '<div style="display:flex;flex-wrap:wrap;gap:6px">';  // reopen flex
     } else if(hasLines){
       r.voiceLines.forEach(function(line, i){
         if(!line.audioUrl) return;
@@ -1561,6 +1607,260 @@ async function synthesizeDialogVideo(rowId){
   }
 }
 
+// ── 本機合成影片（純瀏覽器，無需 n8n）────────────────────────────────────────
+async function composeShotLocally(rowId){
+  var r = rows.find(function(r){ return r.id===rowId; });
+  if(!r) return;
+
+  var isDialog  = r.sceneType === '對話模式';
+  var hasVoice  = isDialog
+    ? (r.voiceLines && r.voiceLines.some(function(l){ return l.audioUrl; }))
+    : !!r.voiceAudio;
+  var hasVideo  = !isDialog && !!r.videoPreview;
+
+  if(!hasVoice){ alert('請先完成配音再合成'); return; }
+  if(!isDialog && !hasVideo){ alert('請先取得影片素材再合成'); return; }
+
+  var btn      = document.getElementById('local-synth-btn-'+rowId);
+  var statusEl = document.getElementById('local-synth-status-'+rowId);
+  function setS(msg, color){ if(statusEl){ statusEl.textContent=msg; statusEl.style.color=color||'var(--muted)'; } }
+  if(btn) btn.disabled = true;
+
+  var PADDING    = 0.4;   // 前後各 0.4 秒停頓
+  var GAP        = 0.25;  // 對話模式每句之間的空白
+
+  var W = 1280, H = 720;
+  var canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  var c2d = canvas.getContext('2d');
+
+  var audioCtx;
+  try {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if(audioCtx.state === 'suspended') await audioCtx.resume();
+
+    // ─── 1. 準備音頻 ───────────────────────────────────────────────
+    setS('⏳ 載入音頻...', 'var(--amber)');
+
+    var combinedBuf;   // AudioBuffer 最終要播放的
+    var timeline = []; // 對話模式用：[{speaker,start,end}]，時間相對於 combinedBuf 開頭
+
+    if(isDialog){
+      // 逐句解碼
+      var sampleRate = audioCtx.sampleRate;
+      var lineBuffers = [];
+      for(var i=0; i<r.voiceLines.length; i++){
+        var line = r.voiceLines[i];
+        if(!line.audioUrl){ lineBuffers.push({ speaker:line.speaker, buf:null }); continue; }
+        try {
+          var ab  = await (await fetch(line.audioUrl)).arrayBuffer();
+          var buf = await audioCtx.decodeAudioData(ab);
+          lineBuffers.push({ speaker:line.speaker, buf:buf });
+        } catch(e){ lineBuffers.push({ speaker:line.speaker, buf:null }); }
+      }
+
+      // 計算總 samples
+      var padSmp = Math.floor(PADDING * sampleRate);
+      var gapSmp = Math.floor(GAP * sampleRate);
+      var nCh    = 1;
+      lineBuffers.forEach(function(lb){ if(lb.buf) nCh = Math.max(nCh, lb.buf.numberOfChannels); });
+
+      var totalSmp = padSmp;
+      lineBuffers.forEach(function(lb){ totalSmp += (lb.buf ? lb.buf.length : 0) + gapSmp; });
+      totalSmp += padSmp;
+
+      combinedBuf = audioCtx.createBuffer(nCh, totalSmp, sampleRate);
+
+      // 填充並建立 timeline
+      var writePos = padSmp;
+      var tCursor  = PADDING;
+      lineBuffers.forEach(function(lb){
+        var dur = lb.buf ? lb.buf.duration : 0;
+        timeline.push({ speaker:lb.speaker, start:tCursor, end:tCursor + dur });
+        if(lb.buf){
+          for(var ch=0; ch<combinedBuf.numberOfChannels; ch++){
+            var dst = combinedBuf.getChannelData(ch);
+            var src = lb.buf.getChannelData(Math.min(ch, lb.buf.numberOfChannels-1));
+            dst.set(src, writePos);
+          }
+          writePos += lb.buf.length;
+        }
+        writePos  += gapSmp;
+        tCursor   += dur + GAP;
+      });
+
+    } else {
+      // 單一配音
+      var ab  = await (await fetch(r.voiceAudio)).arrayBuffer();
+      combinedBuf = await audioCtx.decodeAudioData(ab);
+    }
+
+    var totalDuration = combinedBuf.duration + PADDING * 2;
+
+    // ─── 2. 準備影片（非對話）或角色圖像（對話）────────────────────
+    setS('⏳ 載入影片...', 'var(--amber)');
+
+    var bgVideo = null;           // 非對話背景影片
+    var charEls = { A:{}, B:{} }; // 對話角色媒體元素
+
+    if(!isDialog){
+      bgVideo = document.createElement('video');
+      bgVideo.crossOrigin = 'anonymous';
+      bgVideo.muted = true;
+      bgVideo.loop  = true;
+      bgVideo.src   = r.videoPreview;
+      await new Promise(function(res, rej){ bgVideo.onloadedmetadata=res; bgVideo.onerror=rej; bgVideo.load(); });
+      var vidDur   = isFinite(bgVideo.duration) ? bgVideo.duration : totalDuration + 5;
+      var maxStart = Math.max(0, vidDur - totalDuration);
+      bgVideo.currentTime = maxStart > 0 ? Math.random() * maxStart : 0;
+      await new Promise(function(res){ var fn=function(){ bgVideo.removeEventListener('seeked',fn); res(); }; bgVideo.addEventListener('seeked',fn); });
+
+    } else {
+      // 嘗試載入角色素材（PLAYER_VIDEOS）
+      var PV = PLAYER_VIDEOS;
+      for(var role of ['a','b']){
+        var key = role.toUpperCase();
+        charEls[key] = {};
+        for(var type of ['talk','idle']){
+          if(!PV[role][type]) continue;
+          if(type==='idle'){
+            var img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.src = PV[role][type];
+            await new Promise(function(res){ img.onload=res; img.onerror=res; });
+            charEls[key][type] = img;
+          } else {
+            var vel = document.createElement('video');
+            vel.crossOrigin='anonymous'; vel.muted=true; vel.loop=true;
+            vel.src = PV[role][type];
+            await new Promise(function(res){ vel.onloadedmetadata=res; vel.onerror=res; vel.load(); });
+            charEls[key][type] = vel;
+          }
+        }
+      }
+    }
+
+    // ─── 3. MediaRecorder 設定 ─────────────────────────────────────
+    var dest   = audioCtx.createMediaStreamDestination();
+    var cStream = canvas.captureStream(30);
+    var mixed  = new MediaStream([...cStream.getVideoTracks(), ...dest.stream.getAudioTracks()]);
+
+    var mime = ['video/webm;codecs=vp8,opus','video/webm;codecs=vp9,opus','video/webm','video/mp4']
+               .find(function(m){ return MediaRecorder.isTypeSupported(m); }) || 'video/webm';
+
+    var recorder = new MediaRecorder(mixed, { mimeType: mime, videoBitsPerSecond: 5000000 });
+    var chunks = [];
+    recorder.ondataavailable = function(e){ if(e.data.size>0) chunks.push(e.data); };
+
+    // ─── 4. 排程音頻播放 ───────────────────────────────────────────
+    setS('🎬 合成中 0%...', 'var(--cyan)');
+
+    recorder.start(100);
+    var t0 = audioCtx.currentTime;
+
+    var audioSrc = audioCtx.createBufferSource();
+    audioSrc.buffer = combinedBuf;
+    audioSrc.connect(dest);
+    audioSrc.start(t0 + PADDING); // 配音在停頓之後開始
+
+    if(bgVideo) bgVideo.play().catch(function(){});
+    // 啟動對話角色影片
+    for(var rk in charEls){
+      if(charEls[rk].talk && charEls[rk].talk.play) charEls[rk].talk.play().catch(function(){});
+    }
+
+    // ─── 5. Canvas 繪製迴圈 ────────────────────────────────────────
+    await new Promise(function(resolve){
+      function draw(){
+        var elapsed = audioCtx.currentTime - t0;
+        var pct = Math.min(100, Math.round(elapsed / totalDuration * 100));
+        setS('🎬 合成中 '+pct+'%... （請勿切換標籤）', 'var(--cyan)');
+
+        if(!isDialog && bgVideo){
+          // 非對話：直接繪製背景影片
+          try { c2d.drawImage(bgVideo, 0, 0, W, H); } catch(e){}
+
+        } else {
+          // 對話模式：依 timeline 判斷目前說話角色
+          var audioElapsed = elapsed - PADDING; // combinedBuf 內的時間軸
+          var activeSpeaker = null;
+          for(var ti=0; ti<timeline.length; ti++){
+            if(audioElapsed >= timeline[ti].start && audioElapsed < timeline[ti].end){
+              activeSpeaker = timeline[ti].speaker;
+              break;
+            }
+          }
+          // 深色背景
+          c2d.fillStyle = '#0d1320';
+          c2d.fillRect(0, 0, W, H);
+
+          var hasChrA = charEls.A.talk || charEls.A.idle;
+          var hasChrB = charEls.B.talk || charEls.B.idle;
+
+          if(hasChrA || hasChrB){
+            // 有角色素材：A 左 B 右
+            var layout = { A:{x:0,w:W/2}, B:{x:W/2,w:W/2} };
+            for(var role2 in layout){
+              var pos   = layout[role2];
+              var ce    = charEls[role2];
+              var isAct = role2 === activeSpeaker;
+              var el    = isAct ? (ce.talk||ce.idle) : (ce.idle||ce.talk);
+              if(el){
+                c2d.globalAlpha = isAct ? 1 : 0.45;
+                try { c2d.drawImage(el, pos.x, 0, pos.w, H); } catch(e){}
+                c2d.globalAlpha = 1;
+              } else {
+                // 空白方塊
+                c2d.fillStyle = isAct ? 'rgba(34,211,238,0.15)' : 'rgba(0,0,0,0.2)';
+                c2d.fillRect(pos.x+8, 8, pos.w-16, H-16);
+              }
+            }
+          } else {
+            // 無角色素材：顯示說話角色標示
+            c2d.fillStyle = 'rgba(0,0,0,0.4)';
+            c2d.fillRect(0, 0, W, H);
+            if(activeSpeaker){
+              var spkColor = activeSpeaker==='A' ? '#22d3ee' : '#a78bfa';
+              c2d.fillStyle = spkColor;
+              c2d.font = 'bold 160px "JetBrains Mono", monospace';
+              c2d.textAlign = 'center';
+              c2d.textBaseline = 'middle';
+              c2d.fillText(activeSpeaker, W/2, H/2);
+            }
+          }
+        }
+
+        if(elapsed >= totalDuration){
+          if(bgVideo) bgVideo.pause();
+          for(var rk2 in charEls){ if(charEls[rk2].talk&&charEls[rk2].talk.pause) charEls[rk2].talk.pause(); }
+          recorder.stop();
+          resolve();
+        } else {
+          requestAnimationFrame(draw);
+        }
+      }
+      requestAnimationFrame(draw);
+    });
+
+    await new Promise(function(res){ recorder.onstop = res; });
+    audioCtx.close();
+
+    var ext  = mime.includes('mp4') ? 'mp4' : 'webm';
+    var blob = new Blob(chunks, { type: mime });
+    r.localSynthUrl = URL.createObjectURL(blob);
+    r.localSynthExt = ext;
+
+    setS('✅ 完成！', 'var(--green)');
+    if(btn) btn.disabled = false;
+    renderAssets();
+
+  } catch(e){
+    if(audioCtx) try{ audioCtx.close(); }catch(_){}
+    setS('✕ 失敗：'+e.message, 'var(--red)');
+    if(btn) btn.disabled = false;
+  }
+}
+
 // ── SETTINGS ─────────────────────────────────────────────────────────────────
 function saveSettings(){
   CFG.fishWebhook     = document.getElementById('s-fish-webhook').value.trim();
@@ -1745,7 +2045,7 @@ async function runDialogVoices(r){
         var res = await fetch(CFG.fishWebhook, {
           method:'POST',
           headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ id:r.id+'_'+i, speaker:s.speaker, text:s.dialog, reference_id:voiceId })
+          body: JSON.stringify({ id:r.id+'_'+i, speaker:s.speaker, text:s.dialog, reference_id:voiceId, speed:0.9 })
         });
         if(!res.ok) throw new Error('HTTP '+res.status);
         var ct = res.headers.get('content-type')||'';
@@ -1802,7 +2102,7 @@ async function runVoice(r, targetRow, role){
     var res = await fetch(CFG.fishWebhook, {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ id: r.id, speaker: role, text: text, reference_id: voiceId })
+      body: JSON.stringify({ id: r.id, speaker: role, text: text, reference_id: voiceId, speed: 0.9 })
     });
     if(!res.ok) throw new Error('Fish Audio HTTP '+res.status);
     var ct = res.headers.get('content-type') || '';

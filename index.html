@@ -1201,14 +1201,28 @@ function renderAssets(){
     // ── 下載按鈕 ──
     html += '<div style="display:flex;flex-wrap:wrap;gap:6px">';
 
-    // 真實影片 / 動畫：有影片+配音 → 顯示重新合成按鈕
+    // 真實影片 / 動畫：有影片+配音 → 顯示重新合成按鈕 + n8n 合成結果下載
     if(r.sceneType !== '對話模式' && hasVideo && hasAudio){
       html += '<button onclick="synthesizeSceneVideo(\''+r.id+'\')" id="synth-btn-'+r.id+'" '+
         'style="display:inline-flex;align-items:center;gap:5px;padding:5px 14px;border-radius:6px;'+
         'border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);color:var(--muted);'+
         'font-size:10px;font-weight:600;cursor:pointer;width:100%;justify-content:center;margin-bottom:4px">'+
-        '🔄 重新合成</button>';
+        '🔄 重新合成（n8n）</button>';
       html += '<div id="synth-status-'+r.id+'" style="font-size:10px;color:var(--muted);margin-bottom:4px;min-height:14px;width:100%"></div>';
+      if(r.synthVideoUrl){
+        html += '<a href="'+r.synthVideoUrl+'" download="'+r.id+'_synth.mp4" '+
+          'style="display:inline-flex;align-items:center;gap:5px;padding:5px 14px;border-radius:6px;'+
+          'background:rgba(34,211,238,0.12);border:1px solid rgba(34,211,238,0.4);color:var(--cyan);'+
+          'font-size:10px;font-weight:700;text-decoration:none;width:100%;justify-content:center;margin-bottom:4px">'+
+          '⬇ 下載合成影片（MP4）</a>';
+      }
+      if(r.synthSrtUrl){
+        html += '<a href="'+r.synthSrtUrl+'" download="'+r.id+'.srt" '+
+          'style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:6px;'+
+          'background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:var(--muted);'+
+          'font-size:10px;font-weight:600;text-decoration:none;margin-bottom:4px">'+
+          '⬇ 字幕（SRT）</a>';
+      }
     }
 
     if(hasVideo){
@@ -1241,11 +1255,11 @@ function renderAssets(){
         '🎬 合成影片（畫面+配音）</button>';
       html += '<div id="local-synth-status-'+r.id+'" style="font-size:10px;color:var(--muted);min-height:14px;margin-bottom:4px"></div>';
       if(r.localSynthUrl){
-        html += '<a href="'+r.localSynthUrl+'" download="'+r.id+'_local.'+(r.localSynthExt||'webm')+'" '+
+        html += '<a href="'+r.localSynthUrl+'" download="'+r.id+'_local.mp4" '+
           'style="display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:6px;'+
           'background:rgba(34,211,238,0.18);border:1px solid rgba(34,211,238,0.5);color:var(--cyan);'+
           'font-size:11px;font-weight:700;text-decoration:none;width:100%;justify-content:center">'+
-          '⬇ 下載合成影片（'+(r.localSynthExt||'webm').toUpperCase()+'）</a>';
+          '⬇ 下載合成影片（MP4）</a>';
       }
       html += '</div>';
       html += '<div style="display:flex;flex-wrap:wrap;gap:6px">';  // reopen flex (closed below)
@@ -1285,15 +1299,31 @@ function renderAssets(){
         'style="display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:6px;'+
         'border:1px solid rgba(167,139,250,0.35);background:rgba(167,139,250,0.08);color:var(--violet);'+
         'font-size:11px;font-weight:700;cursor:pointer;width:100%;justify-content:center;margin-bottom:4px">'+
-        '🎬 合成對話影片（本機）</button>';
-      html += '<div style="font-size:9px;color:var(--muted);margin-bottom:4px">'+localNote+'</div>';
+        '🎬 合成對話影片 → MP4（單畫面切換）</button>';
+      var localNote2 = hasPV ? '根據說話者切換角色畫面，輸出 MP4' : '無角色素材時顯示說話角色標示，輸出 MP4';
+      html += '<div style="font-size:9px;color:var(--muted);margin-bottom:4px">'+localNote2+'</div>';
       html += '<div id="local-synth-status-'+r.id+'" style="font-size:10px;color:var(--muted);min-height:14px;margin-bottom:4px"></div>';
       if(r.localSynthUrl){
-        html += '<a href="'+r.localSynthUrl+'" download="'+r.id+'_local.'+(r.localSynthExt||'webm')+'" '+
+        html += '<a href="'+r.localSynthUrl+'" download="'+r.id+'_local.mp4" '+
           'style="display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:6px;'+
           'background:rgba(167,139,250,0.18);border:1px solid rgba(167,139,250,0.5);color:var(--violet);'+
           'font-size:11px;font-weight:700;text-decoration:none;width:100%;justify-content:center">'+
-          '⬇ 下載合成影片（'+(r.localSynthExt||'webm').toUpperCase()+'）</a>';
+          '⬇ 下載合成影片（MP4）</a>';
+      }
+      // n8n 合成結果下載
+      if(r.synthVideoUrl){
+        html += '<a href="'+r.synthVideoUrl+'" download="'+r.id+'_synth.mp4" '+
+          'style="display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:6px;'+
+          'background:rgba(34,211,238,0.12);border:1px solid rgba(34,211,238,0.4);color:var(--cyan);'+
+          'font-size:11px;font-weight:700;text-decoration:none;width:100%;justify-content:center;margin-top:4px">'+
+          '⬇ 下載合成影片（MP4，n8n）</a>';
+      }
+      if(r.synthSrtUrl){
+        html += '<a href="'+r.synthSrtUrl+'" download="'+r.id+'.srt" '+
+          'style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:6px;'+
+          'background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:var(--muted);'+
+          'font-size:10px;font-weight:600;text-decoration:none;margin-top:4px">'+
+          '⬇ 字幕（SRT）</a>';
       }
       html += '</div>';
       html += '<div style="display:flex;flex-wrap:wrap;gap:6px">';  // reopen flex
@@ -1569,13 +1599,13 @@ async function loadFFmpeg(){
   return _ffmpeg;
 }
 
-async function convertToMp4(webmBlob){
+async function convertToMp4(inputBlob){
   var ff = await loadFFmpeg();
-  var inData = new Uint8Array(await webmBlob.arrayBuffer());
-  ff.FS('writeFile', 'in.webm', inData);
-  await ff.run('-i','in.webm','-c:v','libx264','-preset','ultrafast','-c:a','aac','-movflags','+faststart','out.mp4');
+  var inData = new Uint8Array(await inputBlob.arrayBuffer());
+  ff.FS('writeFile', 'input_src', inData);
+  await ff.run('-i','input_src','-c:v','libx264','-preset','ultrafast','-c:a','aac','-movflags','+faststart','out.mp4');
   var out = ff.FS('readFile','out.mp4');
-  try{ ff.FS('unlink','in.webm'); ff.FS('unlink','out.mp4'); }catch(_){}
+  try{ ff.FS('unlink','input_src'); ff.FS('unlink','out.mp4'); }catch(_){}
   return new Blob([out.buffer],{ type:'video/mp4' });
 }
 
@@ -1770,26 +1800,24 @@ async function composeShotLocally(rowId){
           var hasChrB = charEls.B.talk || charEls.B.idle;
 
           if(hasChrA || hasChrB){
-            // 有角色素材：A 左 B 右
-            var layout = { A:{x:0,w:W/2}, B:{x:W/2,w:W/2} };
-            for(var role2 in layout){
-              var pos   = layout[role2];
-              var ce    = charEls[role2];
-              var isAct = role2 === activeSpeaker;
-              var el    = isAct ? (ce.talk||ce.idle) : (ce.idle||ce.talk);
-              if(el){
-                c2d.globalAlpha = isAct ? 1 : 0.45;
-                try { c2d.drawImage(el, pos.x, 0, pos.w, H); } catch(e){}
-                c2d.globalAlpha = 1;
-              } else {
-                // 空白方塊
-                c2d.fillStyle = isAct ? 'rgba(34,211,238,0.15)' : 'rgba(0,0,0,0.2)';
-                c2d.fillRect(pos.x+8, 8, pos.w-16, H-16);
-              }
+            // 單一畫面：根據說話者切換顯示
+            var curRole = activeSpeaker || 'A'; // 無說話者時預設顯示 A
+            var ce = charEls[curRole];
+            // 若目前角色無素材則嘗試另一方
+            if(!ce || (!ce.talk && !ce.idle)){
+              curRole = curRole === 'A' ? 'B' : 'A';
+              ce = charEls[curRole];
+            }
+            var el = ce ? (activeSpeaker ? (ce.talk||ce.idle) : (ce.idle||ce.talk)) : null;
+            if(el){
+              try { c2d.drawImage(el, 0, 0, W, H); } catch(e){}
+            } else {
+              c2d.fillStyle = '#0d1320';
+              c2d.fillRect(0, 0, W, H);
             }
           } else {
-            // 無角色素材：顯示說話角色標示
-            c2d.fillStyle = 'rgba(0,0,0,0.4)';
+            // 無角色素材：全畫面顯示說話角色大字
+            c2d.fillStyle = '#0d1320';
             c2d.fillRect(0, 0, W, H);
             if(activeSpeaker){
               var spkColor = activeSpeaker==='A' ? '#22d3ee' : '#a78bfa';
@@ -1827,18 +1855,29 @@ async function composeShotLocally(rowId){
         r.localSynthUrl = URL.createObjectURL(mp4Blob);
         r.localSynthExt = 'mp4';
       } catch(convErr){
-        // 轉換失敗則退回 WebM
+        // 轉換失敗則退回原始格式
         r.localSynthUrl = URL.createObjectURL(blob);
-        r.localSynthExt = 'webm';
-        setS('⚠ MP4 轉換失敗，退回 WebM：'+convErr.message, 'var(--amber)');
+        r.localSynthExt = mime.includes('mp4') ? 'mp4' : 'webm';
+        setS('⚠ MP4 轉換失敗，退回原始格式（'+r.localSynthExt.toUpperCase()+'）：'+convErr.message, 'var(--amber)');
         if(btn) btn.disabled = false;
         renderAssets();
         return;
       }
     } else {
-      // 對話模式：保持 WebM
-      r.localSynthUrl = URL.createObjectURL(blob);
-      r.localSynthExt = mime.includes('mp4') ? 'mp4' : 'webm';
+      // 對話模式：同樣轉換為 MP4
+      setS('⏳ 轉換為 MP4（首次需載入約 20MB，請稍候）...', 'var(--amber)');
+      try {
+        var mp4BlobD = await convertToMp4(blob);
+        r.localSynthUrl = URL.createObjectURL(mp4BlobD);
+        r.localSynthExt = 'mp4';
+      } catch(convErrD){
+        r.localSynthUrl = URL.createObjectURL(blob);
+        r.localSynthExt = mime.includes('mp4') ? 'mp4' : 'webm';
+        setS('⚠ MP4 轉換失敗，退回原始格式（'+r.localSynthExt.toUpperCase()+'）：'+convErrD.message, 'var(--amber)');
+        if(btn) btn.disabled = false;
+        renderAssets();
+        return;
+      }
     }
 
     setS('✅ 完成！', 'var(--green)');

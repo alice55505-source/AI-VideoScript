@@ -121,8 +121,9 @@ td{padding:6px 8px;vertical-align:top}
 .col-dur{width:72px;vertical-align:top;padding-top:12px}
 .col-func{width:110px;vertical-align:top;padding-top:10px}
 .col-type{width:140px;vertical-align:top;padding-top:8px}
-.col-dialog{width:36%}
-.col-kw{width:22%}
+.col-desc{width:18%}
+.col-dialog{width:24%}
+.col-kw{width:16%}
 .col-status{width:90px;vertical-align:top;padding-top:12px}
 .col-action{width:90px;vertical-align:top;padding-top:8px}
 
@@ -143,7 +144,7 @@ textarea.cell-input{
   overflow:hidden;
   white-space:pre-wrap;
   word-break:break-all;
-  field-sizing:content;  /* Chrome 123+ 自動撐高 */
+  field-sizing:content;
 }
 .cell-select{
   width:100%;background:var(--surface2);border:1px solid var(--border);outline:none;
@@ -154,15 +155,13 @@ textarea.cell-input{
 .cell-id{font-family:var(--font-mono);font-size:11px;color:var(--cyan)}
 .dur-badge{display:inline-block;font-family:var(--font-mono);font-size:11px;color:var(--muted);background:rgba(255,255,255,0.05);border-radius:4px;padding:3px 7px;letter-spacing:.5px}
 
-/* speaker toggle */
-/* spk styles removed */
-
 /* type pills */
 .type-pills{display:flex;gap:3px;flex-wrap:wrap}
 .type-pill{padding:3px 7px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:10px;font-weight:600;cursor:pointer;transition:all .15s;white-space:nowrap}
 .type-pill.active-real{border-color:var(--green);background:rgba(52,211,153,0.12);color:var(--green)}
 .type-pill.active-ai{border-color:var(--amber);background:rgba(251,191,36,0.12);color:var(--amber)}
 .type-pill.active-dialog{border-color:var(--violet);background:rgba(167,139,250,0.12);color:var(--violet)}
+.type-pill.active-pray{border-color:var(--red);background:rgba(248,113,113,0.12);color:var(--red)}
 
 /* status badges */
 .status{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:4px;font-family:var(--font-mono);font-size:10px;font-weight:600;letter-spacing:.5px}
@@ -289,6 +288,7 @@ textarea.cell-input{
       <button class="btn btn-violet" onclick="runSelectedVoice()">🎙 批量配音（全部）</button>
       <button class="btn btn-cyan" onclick="runSelectedVideo()">🎬 批量影片</button>
       <button class="btn btn-green" onclick="runAll()">⚡ 全部執行</button>
+      <button class="btn btn-green" id="btn-concat-all" onclick="concatAllShots()">🎞 串接全片</button>
     </div>
   </div>
 
@@ -302,6 +302,7 @@ textarea.cell-input{
           <th class="col-dur">估算時長</th>
           <th class="col-func">對話功能</th>
           <th class="col-type">畫面類型</th>
+          <th class="col-desc">畫面描述</th>
           <th class="col-dialog">對話內容</th>
           <th class="col-kw">畫面關鍵字</th>
           <th class="col-status">狀態</th>
@@ -358,7 +359,7 @@ textarea.cell-input{
           <div>
             <div class="setting-label">🎙 Fish Audio Voice ID</div>
             <input class="setting-input" id="ab-fish-voice-a" type="text" value="" placeholder="reference_id" style="margin-top:4px" oninput="CFG.fishVoiceA=this.value.trim()">
-            <div style="font-size:10px;color:var(--muted);margin-top:4px">在 <a href="https://fish.audio" target="_blank" style="color:var(--cyan)">fish.audio</a> 選聲音後複製 ID</div>
+            <div style="font-size:10px;color:var(--muted);margin-top:4px">到 <a href="https://fish.audio" target="_blank" style="color:var(--cyan)">fish.audio</a> 選好聲音後複製 reference_id 填入</div>
           </div>
         </div>
       </div>
@@ -386,9 +387,31 @@ textarea.cell-input{
           <div>
             <div class="setting-label">🎙 Fish Audio Voice ID</div>
             <input class="setting-input" id="ab-fish-voice-b" type="text" value="" placeholder="reference_id" style="margin-top:4px" oninput="CFG.fishVoiceB=this.value.trim()">
-            <div style="font-size:10px;color:var(--muted);margin-top:4px">在 <a href="https://fish.audio" target="_blank" style="color:var(--cyan)">fish.audio</a> 選聲音後複製 ID</div>
+            <div style="font-size:10px;color:var(--muted);margin-top:4px">到 <a href="https://fish.audio" target="_blank" style="color:var(--violet)">fish.audio</a> 選好聲音後複製 reference_id 填入</div>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="setting-section" style="margin-top:16px">
+    <div class="setting-title">🙏 禱告素材設定</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:12px">
+      <div style="background:rgba(248,113,113,0.05);border:1px solid rgba(248,113,113,0.2);border-radius:10px;padding:14px">
+        <div style="font-size:12px;font-weight:700;color:var(--red);font-family:var(--font-mono);margin-bottom:12px">A 角色禱告影片</div>
+        <div class="player-upload-box" id="box-a-pray" onclick="document.getElementById('up-a-pray').click()">
+          <video id="prev-a-pray" style="display:none;width:100%;height:100%;object-fit:cover;border-radius:6px"></video>
+          <span id="lbl-a-pray" style="font-size:11px;color:var(--muted)">點擊上傳禱告影片</span>
+        </div>
+        <input type="file" id="up-a-pray" accept="video/*" style="display:none" onchange="loadPlayerVideo('a','pray',this)">
+      </div>
+      <div style="background:rgba(248,113,113,0.05);border:1px solid rgba(248,113,113,0.2);border-radius:10px;padding:14px">
+        <div style="font-size:12px;font-weight:700;color:var(--red);font-family:var(--font-mono);margin-bottom:12px">B 角色禱告影片</div>
+        <div class="player-upload-box" id="box-b-pray" onclick="document.getElementById('up-b-pray').click()">
+          <video id="prev-b-pray" style="display:none;width:100%;height:100%;object-fit:cover;border-radius:6px"></video>
+          <span id="lbl-b-pray" style="font-size:11px;color:var(--muted)">點擊上傳禱告影片</span>
+        </div>
+        <input type="file" id="up-b-pray" accept="video/*" style="display:none" onchange="loadPlayerVideo('b','pray',this)">
       </div>
     </div>
   </div>
@@ -411,9 +434,6 @@ textarea.cell-input{
     </button>
     <div id="upload-assets-status" style="font-size:11px;color:var(--muted);margin-top:8px"></div>
   </div>
-
-
-
 
   <!-- 播放器 -->
   <div class="setting-section" style="margin-top:20px">
@@ -469,9 +489,25 @@ textarea.cell-input{
 <div class="settings">
   <h2 style="font-family:var(--font-mono);font-size:18px;font-weight:700;margin-bottom:20px;color:var(--text)">API 設定</h2>
 
+  <div class="setting-section">
+    <div class="setting-title">🎙 Fish Audio Voice ID</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="setting-field" style="margin-bottom:0">
+        <div class="setting-label">A 角色 Voice ID</div>
+        <input class="setting-input" id="s-fish-voice-a" type="text" value="" placeholder="reference_id"
+          oninput="CFG.fishVoiceA=this.value.trim(); var el=document.getElementById('ab-fish-voice-a'); if(el) el.value=this.value.trim();">
+        <div class="setting-hint">到 fish.audio 選好聲音後複製 reference_id（與 AB 設定頁同步）</div>
+      </div>
+      <div class="setting-field" style="margin-bottom:0">
+        <div class="setting-label">B 角色 Voice ID</div>
+        <input class="setting-input" id="s-fish-voice-b" type="text" value="" placeholder="reference_id"
+          oninput="CFG.fishVoiceB=this.value.trim(); var el=document.getElementById('ab-fish-voice-b'); if(el) el.value=this.value.trim();">
+        <div class="setting-hint">到 fish.audio 選好聲音後複製 reference_id（與 AB 設定頁同步）</div>
+      </div>
+    </div>
+  </div>
 
-
-  <!-- 上傳角色素材到伺服器 -->
+  <!-- 影片合成 -->
   <div class="setting-section">
     <div class="setting-title">🎬 影片合成（n8n compose-dialog）</div>
     <div class="setting-field">
@@ -485,13 +521,12 @@ textarea.cell-input{
 
   <div class="setting-section">
     <div class="setting-field">
-      <div class="setting-label">n8n Webhook URL</div>
+      <div class="setting-label">n8n Webhook URL（Fish Audio TTS）</div>
       <input class="setting-input" id="s-fish-webhook" type="text" value="https://n8n.alice55505.dpdns.org/webhook/fish-audio-tts" placeholder="https://n8n.xxx.dpdns.org/webhook/...">
       <div class="setting-hint">n8n 負責呼叫 Fish Audio API，填 Production URL（/webhook/...）</div>
     </div>
   </div>
 
-  
   <div class="setting-section">
     <div class="setting-title">🔊 Freesound 音效搜尋</div>
     <div class="setting-field">
@@ -500,7 +535,6 @@ textarea.cell-input{
       <div class="setting-hint">免費申請，幾十萬個音效可搜尋。申請：<a href="https://freesound.org/apiv2/apply" target="_blank" style="color:var(--cyan)">freesound.org/apiv2/apply</a></div>
     </div>
   </div>
-
 
   <div class="setting-section">
     <div class="setting-title">🎬 Pexels 真實影片</div>
@@ -513,6 +547,17 @@ textarea.cell-input{
     </div>
   </div>
 
+  <!-- ✅ 新增：Pixabay API Key 在設定頁顯示 -->
+  <div class="setting-section">
+    <div class="setting-title">🎨 Pixabay 動畫影片</div>
+    <div class="setting-field">
+      <div class="setting-label">API Key</div>
+      <input class="setting-input" id="s-pixabay" type="text"
+        value="54889984-010044fd3ccd5e8b1f8ffc40a"
+        placeholder="your_pixabay_api_key">
+      <div class="setting-hint">用於「動畫」類型的影片搜尋</div>
+    </div>
+  </div>
 
   <button class="btn btn-cyan" onclick="saveSettings()" style="margin-top:4px;padding:10px 28px">儲存設定</button>
 </div>
@@ -525,12 +570,15 @@ const CFG = {
   fishWebhook:    'https://n8n.alice55505.dpdns.org/webhook/fish-audio-tts',
   fishVoiceA:    '',
   fishVoiceB:    '',
+  cloneWebhook:  'https://n8n.alice55505.dpdns.org/webhook/clone-voice',
   pexels:        'JhBod0T1Ajqv8walrG37Hac10Nz0IodXv92yAfyoOwzhIOuG6FFXvUrq',
   pixabay:       '54889984-010044fd3ccd5e8b1f8ffc40a',
-  assetsSessionId: null,   // 上傳後的快取 ID
+  assetsSessionId: null,
   uploadAssetsWebhook: 'https://n8n.alice55505.dpdns.org/webhook/upload-assets',
   composeWebhook:      'https://n8n.alice55505.dpdns.org/webhook/compose-dialog',
-  freesound:     'yQW7rRuzjVKtqbYkB8s0aNIYCCm1vScyLEoWYfsA',  // Freesound API Key（音效搜尋）
+  concatWebhook:       'https://n8n.alice55505.dpdns.org/webhook/concat-shots',
+  sfxWebhook:          'https://n8n.alice55505.dpdns.org/webhook/sfx-gen',
+  freesound:     'yQW7rRuzjVKtqbYkB8s0aNIYCCm1vScyLEoWYfsA',
 };
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
@@ -539,9 +587,6 @@ var nextIdx = 1;
 
 // ── CONSTANTS ─────────────────────────────────────────────────────────────────
 var DIALOG_FUNCS = ['拋出話題', '深入探討', '舉例說明', '反問引導', '總結收尾', '過渡銜接', '情感共鳴'];
-
-
-// ── INTRO STATE ──────────────────────────────────────────────────────────────
 
 function uid(){ return `S${String(nextIdx++).padStart(2,'0')}_${String(Math.floor(Math.random()*9)+1).padStart(2,'0')}` }
 
@@ -552,15 +597,16 @@ function newRow(o){
     speaker: o.speaker || 'A',
     dialogFunc: o.dialogFunc || '拋出話題',
     sceneType: o.sceneType || '真實影片',
+    sceneDesc: o.sceneDesc || '',
     dialog: o.dialog || '',
     keywords: o.keywords || '',
-    sfxKeywords: o.sfxKeywords || '',   // 音效關鍵字
-    bgmSuggestion: o.bgmSuggestion || '', // BGM建議（只第一鏡次有）
-    bgmUrl: null, sfxUrl: null,         // 背景音樂 / 音效
+    sfxKeywords: o.sfxKeywords || '',
+    bgmSuggestion: o.bgmSuggestion || '',
+    bgmUrl: null, sfxUrl: null,
     videoStatus:'idle', voiceStatus:'idle',
     videoPreview:null, voiceAudio:null, voiceDialogues:null,
     voiceAudioA:null, voiceAudioB:null,
-    voiceLines: null,  // [{speaker, dialog, audioUrl}] 對話模式逐句音頻
+    voiceLines: null,
     videoError:null, voiceError:null,
     videoDuration:null, videoPhotographer:null, videoPexelsUrl:null,
     selected: false,
@@ -577,6 +623,26 @@ function switchTab(t){
   if(idx>=0) document.querySelectorAll('.nav-tab')[idx].classList.add('active');
   if(t==='assets') renderAssets();
   if(t==='player') playerBuildQueue();
+  // ✅ 切換到 API 設定頁時，同步目前 CFG 值到欄位
+  if(t==='settings') syncSettingsFields();
+}
+
+// ✅ 新增：同步 CFG → 設定頁 input（避免顯示過時值）
+function syncSettingsFields(){
+  var fields = {
+    's-fish-voice-a': 'fishVoiceA',
+    's-fish-voice-b': 'fishVoiceB',
+    's-fish-webhook': 'fishWebhook',
+    's-compose-webhook': 'composeWebhook',
+    's-pexels': 'pexels',
+    's-pixabay': 'pixabay',
+    's-freesound': 'freesound',
+    's-upload-assets-webhook': 'uploadAssetsWebhook',
+  };
+  Object.keys(fields).forEach(function(id){
+    var el = document.getElementById(id);
+    if(el && CFG[fields[id]] !== undefined) el.value = CFG[fields[id]];
+  });
 }
 
 // ── CSV LOAD ─────────────────────────────────────────────────────────────────
@@ -585,11 +651,9 @@ function loadCSV(input){
   var reader = new FileReader();
   reader.onload = function(e){
     var text = e.target.result;
-    // 移除各種 BOM
     text = text.replace(/^[\uFEFF\uFFFE]/, '');
     parseFeishuCSV(text);
   };
-  // 不指定編碼讓瀏覽器自動偵測（相容 UTF-8 BOM）
   reader.readAsText(file);
 }
 
@@ -601,13 +665,11 @@ function parseFeishuCSV(text){
   var col = {};
   header.forEach(function(h,i){ col[h]=i; });
 
-  // 有「腳本生成」欄 → 飛書AI腳本格式
   if(col['腳本生成'] !== undefined){
     parseScriptFormat(col, csvRows[1]);
     return;
   }
 
-  // 嘗試用欄位名稱匯入
   var hasNamedCols = col['鏡次編號'] !== undefined || col['對話內容'] !== undefined ||
                      col['素材來源'] !== undefined || col['搜尋關鍵字'] !== undefined ||
                      col['影片關鍵字'] !== undefined;
@@ -616,12 +678,10 @@ function parseFeishuCSV(text){
     return;
   }
 
-  // fallback：用欄位順序（第1欄=ID, 第2欄=描述/來源, 第3欄=類型, 第4欄=關鍵字, 第5欄=對話, 第6欄=音效）
   parseFallbackByOrder(csvRows);
 }
 
 function parseFallbackByOrder(csvRows){
-  // 第一列如果全是文字（表頭）就跳過
   var startRow = 0;
   var first = csvRows[0];
   var looksLikeHeader = first.some(function(c){
@@ -634,47 +694,42 @@ function parseFallbackByOrder(csvRows){
   var added = 0;
   csvRows.slice(startRow).forEach(function(row){
     if(!row || row.every(function(c){ return !c.trim(); })) return;
-    var id          = (row[0]||'').trim();  // 鏡次編號
-    var rawType     = (row[2]||'').trim();  // 素材來源
-    var dialog      = (row[3]||'').trim();  // 對話內容
-    var keywords    = (row[4]||'').trim();  // 影片關鍵字
-    var sfxKeywords = (row[5]||'').trim();  // 音效關鍵字
+    var id          = (row[0]||'').trim();
+    var rawType     = (row[2]||'').trim();
+    var dialog      = (row[3]||'').trim();
+    var keywords    = (row[4]||'').trim();
+    var sfxKeywords = (row[5]||'').trim();
     if(!id && !dialog) return;
     rows.push(newRow({ id:id||uid(), sceneType:mapFeishuType(rawType), dialog:dialog, keywords:keywords, sfxKeywords:sfxKeywords }));
     added++;
   });
   render();
   if(added) alert('✓ 成功匯入 '+added+' 個鏡次（依欄位順序）');
-  else alert('匯入失敗：找不到有效資料\n\n期望欄位順序：\n第1欄：鏡次編號\n第2欄：畫面描述\n第3欄：素材來源\n第4欄：搜尋關鍵字\n第5欄：對話內容\n第6欄：音效關鍵字');
+  else alert('匯入失敗：找不到有效資料');
 }
 
-// 飛書 AI 腳本格式（腳本生成欄有所有鏡次）
 function parseScriptFormat(col, row){
   var scriptText = (row[col['腳本生成']]||'').trim();
   var sourceText = (row[col['素材來源']]||'').trim();
 
-  // 解析素材來源：Sxx_xx｜類型
   var sourceMap = {};
   sourceText.split('\n').forEach(function(line){
     var parts = line.split('｜');
     if(parts.length >= 2) sourceMap[parts[0].trim()] = parts[1].trim();
   });
 
-  // 用正則切割鏡次區塊（以 Sxx_xx｜ 開頭）
   var blocks = scriptText.split(/\n(?=S\d+_\d+｜)/);
   var added = 0;
 
   blocks.forEach(function(block){
     block = block.trim();
     if(!block || block.indexOf('｜') === -1) return;
-    // 第一行：Sxx_xx｜畫面描述｜素材來源｜
     var lines = block.split('\n');
     var firstLine = lines[0];
     var parts = firstLine.split('｜');
     var shotId  = (parts[0]||'').trim();
     var rawType = sourceMap[shotId] || (parts[2]||'').trim();
 
-    // 關鍵字：找「搜尋關鍵字：」這行
     var keywords = '';
     var dialogLines = [];
     lines.slice(1).forEach(function(line){
@@ -696,26 +751,25 @@ function parseScriptFormat(col, row){
   });
 
   render();
-  // 自動把第一個鏡次的 BGM建議填入 BGM 關鍵字欄
-  var firstBgm = rows.find(function(r){ return r.bgmSuggestion; });
   if(added) alert('✓ 成功匯入 '+added+' 個鏡次');
   else alert('沒有找到有效鏡次資料');
 }
 
 function parseNewFormat(col, csvRows){
+  rows.length = 0;
   var added = 0;
   csvRows.slice(1).forEach(function(row){
     if(!row || row.every(function(c){ return !c.trim(); })) return;
-    var id      = col['鏡次編號'] !== undefined ? (row[col['鏡次編號']]||'').trim() : '';
-    var rawType = col['素材來源'] !== undefined ? (row[col['素材來源']]||'').trim() : '';
-    var dialog  = col['對話內容'] !== undefined ? (row[col['對話內容']]||'').trim() : '';
-    // 影片關鍵字 或 搜尋關鍵字（兩種欄位名都支援）
-    var keywords = '';
+    var id        = col['鏡次編號'] !== undefined ? (row[col['鏡次編號']]||'').trim() : '';
+    var rawType   = col['素材來源'] !== undefined ? (row[col['素材來源']]||'').trim() : '';
+    var sceneDesc = col['畫面描述'] !== undefined ? (row[col['畫面描述']]||'').trim() : '';
+    var dialog    = col['對話內容'] !== undefined ? (row[col['對話內容']]||'').trim() : '';
+    var keywords  = '';
     if(col['影片關鍵字'] !== undefined) keywords = (row[col['影片關鍵字']]||'').trim();
     else if(col['搜尋關鍵字'] !== undefined) keywords = (row[col['搜尋關鍵字']]||'').trim();
     var sfxKeywords = col['音效關鍵字'] !== undefined ? (row[col['音效關鍵字']]||'').trim() : '';
     if(!id && !dialog) return;
-    rows.push(newRow({ id:id||uid(), sceneType:mapFeishuType(rawType), dialog:dialog, keywords:keywords, sfxKeywords:sfxKeywords }));
+    rows.push(newRow({ id:id||uid(), sceneType:mapFeishuType(rawType), sceneDesc:sceneDesc, dialog:dialog, keywords:keywords, sfxKeywords:sfxKeywords }));
     added++;
   });
   render();
@@ -751,27 +805,24 @@ function mapFeishuType(raw){
 }
 
 function parseCSVText(text){
-  // 正確處理引號內換行的 CSV parser
   var rows = [];
   var row = [], cur = '', inQ = false;
   for(var i=0; i<text.length; i++){
     var ch = text[i];
     var next = text[i+1];
     if(inQ){
-      if(ch==='"' && next==='"'){ cur+='"'; i++; }       // 跳脫引號
-      else if(ch==='"'){ inQ=false; }                     // 結束引號
-      else { cur+=ch; }                                   // 引號內容（包含換行）
+      if(ch==='"' && next==='"'){ cur+='"'; i++; }
+      else if(ch==='"'){ inQ=false; }
+      else { cur+=ch; }
     } else {
-      if(ch==='"'){ inQ=true; }                           // 開始引號
-      else if(ch===','){  row.push(cur); cur=''; }        // 欄位分隔
-      else if(ch==='\r' && next==='\n'){ row.push(cur); cur=''; rows.push(row); row=[]; i++; } // CRLF
-      else if(ch==='\n'){ row.push(cur); cur=''; rows.push(row); row=[]; }  // LF
+      if(ch==='"'){ inQ=true; }
+      else if(ch===','){  row.push(cur); cur=''; }
+      else if(ch==='\r' && next==='\n'){ row.push(cur); cur=''; rows.push(row); row=[]; i++; }
+      else if(ch==='\n'){ row.push(cur); cur=''; rows.push(row); row=[]; }
       else { cur+=ch; }
     }
   }
-  // 最後一欄/列
   if(cur || row.length) { row.push(cur); rows.push(row); }
-  // 過濾空列
   return rows.filter(function(r){ return r.some(function(c){ return c.trim(); }); });
 }
 
@@ -782,7 +833,6 @@ function parsePaste(){
     parseFeishuCSV(text);
     return;
   }
-  // Tab separated
   var lines = text.split('\n');
   var added = 0;
   lines.forEach(function(line){
@@ -802,8 +852,6 @@ function parsePaste(){
   });
   render();
   document.getElementById('paste-input').value = '';
-  // 自動把第一個鏡次的 BGM建議填入 BGM 關鍵字欄
-  var firstBgm = rows.find(function(r){ return r.bgmSuggestion; });
   alert('✓ 成功匯入 '+added+' 列');
 }
 
@@ -829,10 +877,11 @@ function setType(id, type){
   r.sceneType = type;
   var tr = document.getElementById('tr-'+id);
   if(tr){
-    tr.querySelectorAll('.type-pill').forEach(function(btn){ btn.classList.remove('active-real','active-ai','active-dialog'); });
+    tr.querySelectorAll('.type-pill').forEach(function(btn){ btn.classList.remove('active-real','active-ai','active-dialog','active-pray'); });
     if(type==='真實影片') tr.querySelector('.pill-real') && tr.querySelector('.pill-real').classList.add('active-real');
     if(type==='動畫')  tr.querySelector('.pill-ai')   && tr.querySelector('.pill-ai').classList.add('active-ai');
     if(type==='對話模式') tr.querySelector('.pill-dialog')&& tr.querySelector('.pill-dialog').classList.add('active-dialog');
+    if(type==='禱告') tr.querySelector('.pill-pray') && tr.querySelector('.pill-pray').classList.add('active-pray');
   }
 }
 
@@ -840,14 +889,10 @@ function setSpeaker(id, speaker){
   var r = rows.find(function(r){ return r.id===id; });
   if(!r) return;
   r.speaker = speaker;
-  // re-render just that row's func cell by full re-render
   render();
 }
 
-function updateVoiceHints(){
-  // no-op (voice hints removed with n8n)
-}
-
+function updateVoiceHints(){}
 
 function toggleSelect(id){
   var r = rows.find(function(r){ return r.id===id; });
@@ -899,7 +944,6 @@ function render(){
   rows.forEach(function(r){ tbody.appendChild(makeRow(r)); });
   document.getElementById('row-count').textContent = rows.length + ' 列';
   document.getElementById('check-all').checked = rows.length > 0 && rows.every(function(r){ return r.selected; });
-  // resize textareas
   setTimeout(function(){
     tbody.querySelectorAll('textarea').forEach(function(ta){ autoResize(ta); });
   }, 0);
@@ -929,7 +973,9 @@ function makeRow(r){
       '<button class="type-pill pill-real '+(r.sceneType==='真實影片'?'active-real':'')+'" onclick="setType(\''+r.id+'\',\'真實影片\')">真實</button>'+
       '<button class="type-pill pill-ai '+(r.sceneType==='動畫'?'active-ai':'')+'" onclick="setType(\''+r.id+'\',\'動畫\')">動畫</button>'+
       '<button class="type-pill pill-dialog '+(r.sceneType==='對話模式'?'active-dialog':'')+'" onclick="setType(\''+r.id+'\',\'對話模式\')">配音</button>'+
+      '<button class="type-pill pill-pray '+(r.sceneType==='禱告'?'active-pray':'')+'" onclick="setType(\''+r.id+'\',\'禱告\')">禱告</button>'+
     '</div></td>' +
+    '<td class="col-desc" id="td-desc-'+r.id+'"></td>' +
     '<td class="col-dialog" id="td-dialog-'+r.id+'"></td>' +
     '<td class="col-kw" id="td-kw-'+r.id+'"></td>' +
     '<td class="col-status" id="status-'+r.id+'">'+renderStatus(r)+'</td>' +
@@ -940,11 +986,18 @@ function makeRow(r){
       '<button class="row-btn row-btn-del" onclick="deleteRow(\''+r.id+'\')">✕</button>'+
     '</div></td>';
 
-  // textarea for dialog
+  var tdDesc = tr.querySelector('#td-desc-'+r.id);
+  var taDesc = document.createElement('textarea');
+  taDesc.className = 'cell-input';
+  taDesc.placeholder = '畫面場景描述…';
+  taDesc.value = r.sceneDesc;
+  taDesc.addEventListener('input', function(){ autoResize(this); updateRow(r.id,'sceneDesc',this.value); });
+  tdDesc.appendChild(taDesc);
+
   var tdDialog = tr.querySelector('#td-dialog-'+r.id);
   var taDialog = document.createElement('textarea');
   taDialog.className = 'cell-input';
-  taDialog.placeholder = '台詞內容…';
+  taDialog.placeholder = '台詞內容… (對話模式請用 A：台詞\\nB：台詞 格式)';
   taDialog.value = r.dialog;
   taDialog.addEventListener('input', function(){ autoResize(this); updateRow(r.id,'dialog',this.value); refreshDur(r.id); });
   tdDialog.appendChild(taDialog);
@@ -959,14 +1012,13 @@ function makeRow(r){
 
   frag.appendChild(tr);
 
-  // preview row：對話模式不顯示（素材庫才有），其他類型正常顯示
-  var showPreview = (r.sceneType !== '對話模式') &&
+  var showPreview = (r.sceneType !== '對話模式' && r.sceneType !== '禱告') &&
     ((r.videoStatus==='done'&&r.videoPreview)||(r.voiceStatus==='done'&&r.voiceAudio)||(r.videoStatus==='error')||(r.voiceStatus==='error'));
   if(showPreview){
     var prev = document.createElement('tr');
     prev.className='preview-row';
     prev.id='prev-'+r.id;
-    prev.innerHTML = '<td colspan="9"><div class="preview-cell">'+renderPreview(r)+'</div></td>';
+    prev.innerHTML = '<td colspan="10"><div class="preview-cell">'+renderPreview(r)+'</div></td>';
     frag.appendChild(prev);
   }
 
@@ -983,7 +1035,7 @@ function renderStatus(r){
     if(s==='error')      return '<span class="status status-error">✕ 錯誤</span>';
     return '<span class="status status-idle">待機</span>';
   }
-  if(r.sceneType==='對話模式') return pick(r.voiceStatus);
+  if(r.sceneType==='對話模式' || r.sceneType==='禱告') return pick(r.voiceStatus);
   return pick(r.videoStatus);
 }
 
@@ -1003,54 +1055,52 @@ function renderPreview(r){
   }
   if(r.voiceStatus==='done' || r.voiceAudioA || r.voiceAudioB || (r.voiceLines&&r.voiceLines.length)){
     html += '<div class="preview-audio">';
-    if(r.sceneType === '對話模式'){
+    if(r.sceneType === '對話模式' || r.sceneType === '禱告'){
       if(r.voiceLines && r.voiceLines.length){
         var doneCnt = r.voiceLines.filter(function(l){return l.audioUrl;}).length;
         var hasAnyAudio = doneCnt > 0;
+        var isPray = r.sceneType === '禱告';
+        var pvA = isPray ? (PLAYER_VIDEOS.a.pray||null) : (PLAYER_VIDEOS.a.talk||null);
+        var pvAidle = isPray ? null : (PLAYER_VIDEOS.a.idle||null);
+        var pvB = isPray ? (PLAYER_VIDEOS.b.pray||null) : (PLAYER_VIDEOS.b.talk||null);
+        var pvBidle = isPray ? null : (PLAYER_VIDEOS.b.idle||null);
 
-        // ── 嵌入式 AB 對話播放器 ──
         html += '<div style="background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:10px;margin-bottom:10px">';
-        html += '<div style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px">🎬 對話播放預覽</div>';
+        html += '<div style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px">'+(isPray?'🙏 禱告播放預覽':'🎬 對話播放預覽')+'</div>';
 
-        // AB 畫面區
         html += '<div style="display:flex;gap:8px;margin-bottom:8px">';
-        // A 畫面
         html += '<div id="mini-box-a-'+r.id+'" style="flex:1;aspect-ratio:16/9;border-radius:7px;overflow:hidden;background:#111;border:1px solid rgba(34,211,238,0.2);position:relative">';
-        if(PLAYER_VIDEOS.a.talk){
-          html += '<video id="mini-va-'+r.id+'" src="'+PLAYER_VIDEOS.a.talk+'" style="width:100%;height:100%;object-fit:cover;display:none" loop muted playsinline></video>';
+        if(pvA){
+          html += '<video id="mini-va-'+r.id+'" src="'+pvA+'" style="width:100%;height:100%;object-fit:cover;display:none" loop muted playsinline></video>';
         }
-        if(PLAYER_VIDEOS.a.idle){
-          html += '<img id="mini-ia-'+r.id+'" src="'+PLAYER_VIDEOS.a.idle+'" style="width:100%;height:100%;object-fit:cover;position:absolute;top:0;left:0">';
+        if(pvAidle){
+          html += '<img id="mini-ia-'+r.id+'" src="'+pvAidle+'" style="width:100%;height:100%;object-fit:cover;position:absolute;top:0;left:0">';
         }
-        if(!PLAYER_VIDEOS.a.talk && !PLAYER_VIDEOS.a.idle){
-          html += '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:22px;opacity:0.25">👤</div>';
+        if(!pvA && !pvAidle){
+          html += '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:22px;opacity:0.25">'+(isPray?'🙏':'👤')+'</div>';
         }
         html += '<div style="position:absolute;bottom:5px;left:6px;font-size:10px;font-weight:700;color:var(--cyan);font-family:var(--font-mono);background:rgba(0,0,0,0.6);padding:1px 6px;border-radius:3px">A</div>';
         html += '</div>';
-        // B 畫面
         html += '<div id="mini-box-b-'+r.id+'" style="flex:1;aspect-ratio:16/9;border-radius:7px;overflow:hidden;background:#111;border:1px solid rgba(139,92,246,0.2);position:relative">';
-        if(PLAYER_VIDEOS.b.talk){
-          html += '<video id="mini-vb-'+r.id+'" src="'+PLAYER_VIDEOS.b.talk+'" style="width:100%;height:100%;object-fit:cover;display:none" loop muted playsinline></video>';
+        if(pvB){
+          html += '<video id="mini-vb-'+r.id+'" src="'+pvB+'" style="width:100%;height:100%;object-fit:cover;display:none" loop muted playsinline></video>';
         }
-        if(PLAYER_VIDEOS.b.idle){
-          html += '<img id="mini-ib-'+r.id+'" src="'+PLAYER_VIDEOS.b.idle+'" style="width:100%;height:100%;object-fit:cover;position:absolute;top:0;left:0">';
+        if(pvBidle){
+          html += '<img id="mini-ib-'+r.id+'" src="'+pvBidle+'" style="width:100%;height:100%;object-fit:cover;position:absolute;top:0;left:0">';
         }
-        if(!PLAYER_VIDEOS.b.talk && !PLAYER_VIDEOS.b.idle){
-          html += '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:22px;opacity:0.25">👤</div>';
+        if(!pvB && !pvBidle){
+          html += '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:22px;opacity:0.25">'+(isPray?'🙏':'👤')+'</div>';
         }
         html += '<div style="position:absolute;bottom:5px;right:6px;font-size:10px;font-weight:700;color:var(--violet);font-family:var(--font-mono);background:rgba(0,0,0,0.6);padding:1px 6px;border-radius:3px">B</div>';
         html += '</div>';
-        html += '</div>'; // end flex
+        html += '</div>';
 
-        // 台詞顯示
         html += '<div id="mini-dialog-'+r.id+'" style="min-height:32px;padding:6px 10px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:6px;font-size:12px;color:var(--text);line-height:1.5;margin-bottom:8px"><span style="color:var(--muted);font-size:10px">按▶播放</span></div>';
 
-        // 進度條
         html += '<div style="background:rgba(255,255,255,0.06);border-radius:3px;height:3px;overflow:hidden;margin-bottom:6px">';
         html += '<div id="mini-progress-'+r.id+'" style="height:100%;background:linear-gradient(90deg,var(--cyan),var(--violet));width:0%;transition:width 0.3s ease;border-radius:3px"></div>';
         html += '</div>';
 
-        // 控制列
         html += '<div style="display:flex;align-items:center;gap:6px">';
         if(hasAnyAudio){
           html += '<button onclick="miniPlay(\''+r.id+'\')" id="mini-btn-'+r.id+'" style="flex:1;padding:6px 0;border-radius:6px;border:1px solid rgba(34,211,238,0.3);background:rgba(34,211,238,0.1);color:var(--cyan);font-size:11px;font-weight:700;cursor:pointer">▶ 播放</button>';
@@ -1060,9 +1110,8 @@ function renderPreview(r){
         }
         html += '<span style="font-size:10px;color:var(--muted);margin-left:auto">'+doneCnt+'/'+r.voiceLines.length+' 句</span>';
         html += '</div>';
-        html += '</div>'; // end 播放器區塊
+        html += '</div>';
 
-        // ── 逐句配音列表 ──
         html += '<div style="font-size:10px;color:var(--muted);margin-bottom:5px;margin-top:8px">🎙 逐句配音：'+doneCnt+' / '+r.voiceLines.length+' 完成</div>';
         html += '<div style="display:flex;flex-direction:column;gap:3px">';
         r.voiceLines.forEach(function(line, i){
@@ -1120,15 +1169,14 @@ function setRowState(r, type, status){
   if(old){
     var oldPrev = document.getElementById('prev-'+r.id);
     if(oldPrev) oldPrev.remove();
-    if((r.sceneType !== '對話模式') &&
+    if((r.sceneType !== '對話模式' && r.sceneType !== '禱告') &&
        ((r.videoStatus==='done'&&r.videoPreview)||(r.voiceStatus==='done'&&r.voiceAudio)||(r.videoStatus==='error')||(r.voiceStatus==='error'))){
       var prev = document.createElement('tr');
       prev.className='preview-row'; prev.id='prev-'+r.id;
-      prev.innerHTML = '<td colspan="9"><div class="preview-cell">'+renderPreview(r)+'</div></td>';
+      prev.innerHTML = '<td colspan="10"><div class="preview-cell">'+renderPreview(r)+'</div></td>';
       old.insertAdjacentElement('afterend',prev);
     }
   }
-
   updateStats();
 }
 
@@ -1176,7 +1224,6 @@ function renderAssets(){
 
     var html = '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden">';
 
-    // ── 影片縮圖 ──
     if(hasVideo){
       html += '<video src="'+r.videoPreview+'" muted loop playsinline '+
         'style="width:100%;height:140px;object-fit:cover;display:block;cursor:pointer" '+
@@ -1187,21 +1234,16 @@ function renderAssets(){
     }
 
     html += '<div style="padding:10px 12px">';
-
-    // ── ID + 類型 ──
     html += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">'+
       '<span style="font-family:var(--font-mono);font-size:11px;color:var(--cyan);font-weight:700">'+r.id+'</span>'+
       '<span style="font-size:9px;color:var(--muted);background:rgba(255,255,255,0.06);padding:1px 6px;border-radius:4px">'+r.sceneType+'</span>'+
       '</div>';
 
-    // ── 關鍵字或對話預覽 ──
     var preview = r.keywords || r.dialog.substring(0,50);
     html += '<div style="font-size:10px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:10px" title="'+escAttr(r.dialog)+'">'+escHtml(preview)+'</div>';
 
-    // ── 下載按鈕 ──
     html += '<div style="display:flex;flex-wrap:wrap;gap:6px">';
 
-    // 真實影片 / 動畫：有影片+配音 → 顯示重新合成按鈕 + n8n 合成結果下載
     if(r.sceneType !== '對話模式' && hasVideo && hasAudio){
       html += '<button onclick="synthesizeSceneVideo(\''+r.id+'\')" id="synth-btn-'+r.id+'" '+
         'style="display:inline-flex;align-items:center;gap:5px;padding:5px 14px;border-radius:6px;'+
@@ -1243,9 +1285,8 @@ function renderAssets(){
         'font-size:10px;font-weight:600;text-decoration:none">⬇ 配音</a>';
     }
 
-    // ── 本機合成（真實影片/動畫，有影片+配音）──
     if(r.sceneType !== '對話模式' && hasVideo && hasAudio){
-      html += '</div>';  // close flex
+      html += '</div>';
       html += '<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.06)">';
       html += '<div style="font-size:9px;font-weight:700;color:rgba(34,211,238,0.5);letter-spacing:1.2px;text-transform:uppercase;margin-bottom:6px;font-family:var(--font-mono)">本機合成</div>';
       html += '<button onclick="composeShotLocally(\''+r.id+'\')" id="local-synth-btn-'+r.id+'" '+
@@ -1262,22 +1303,18 @@ function renderAssets(){
           '⬇ 下載合成影片（MP4）</a>';
       }
       html += '</div>';
-      html += '<div style="display:flex;flex-wrap:wrap;gap:6px">';  // reopen flex (closed below)
+      html += '<div style="display:flex;flex-wrap:wrap;gap:6px">';
     }
 
-    // 對話模式：合成完整影片 + 逐句下載
     if(r.sceneType==='對話模式' && hasLines){
       var readyLines = r.voiceLines.filter(function(l){return l.audioUrl;}).length;
       var totalLines = r.voiceLines.length;
-      var allReady = readyLines === totalLines && totalLines > 0;
-      // 合成按鈕
       html += '<button onclick="synthesizeDialogVideo(\''+r.id+'\')" id="synth-btn-'+r.id+'" '+
         'style="display:inline-flex;align-items:center;gap:5px;padding:5px 14px;border-radius:6px;'+
         'border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);color:var(--muted);'+
         'font-size:10px;font-weight:600;cursor:pointer;width:100%;justify-content:center;margin-bottom:6px">'+
         '🔄 重新合成</button>';
       html += '<div id="synth-status-'+r.id+'" style="font-size:10px;color:var(--muted);margin-bottom:6px;min-height:14px"></div>';
-      // 逐句下載
       r.voiceLines.forEach(function(line, i){
         if(!line.audioUrl) return;
         var spkColor = line.speaker==='A' ? 'var(--cyan)' : 'var(--violet)';
@@ -1288,20 +1325,15 @@ function renderAssets(){
           '⬇ '+line.speaker+(i+1)+'</a>';
       });
 
-      // ── 本機合成（對話模式）──
-      html += '</div>';  // close flex
+      html += '</div>';
       html += '<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.06)">';
       html += '<div style="font-size:9px;font-weight:700;color:rgba(167,139,250,0.6);letter-spacing:1.2px;text-transform:uppercase;margin-bottom:6px;font-family:var(--font-mono)">本機合成</div>';
       var hasLocalAudio = r.voiceLines.some(function(l){ return l.audioUrl; });
-      var hasPV = PLAYER_VIDEOS.a.talk||PLAYER_VIDEOS.a.idle||PLAYER_VIDEOS.b.talk||PLAYER_VIDEOS.b.idle;
-      var localNote = hasPV ? '將使用 AB 設定中的角色素材' : '無角色素材時顯示說話角色標示';
       html += '<button onclick="composeShotLocally(\''+r.id+'\')" id="local-synth-btn-'+r.id+'" '+(hasLocalAudio?'':'disabled ')+
         'style="display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:6px;'+
         'border:1px solid rgba(167,139,250,0.35);background:rgba(167,139,250,0.08);color:var(--violet);'+
         'font-size:11px;font-weight:700;cursor:pointer;width:100%;justify-content:center;margin-bottom:4px">'+
         '🎬 合成對話影片 → MP4（單畫面切換）</button>';
-      var localNote2 = hasPV ? '根據說話者切換角色畫面，輸出 MP4' : '無角色素材時顯示說話角色標示，輸出 MP4';
-      html += '<div style="font-size:9px;color:var(--muted);margin-bottom:4px">'+localNote2+'</div>';
       html += '<div id="local-synth-status-'+r.id+'" style="font-size:10px;color:var(--muted);min-height:14px;margin-bottom:4px"></div>';
       if(r.localSynthUrl){
         html += '<a href="'+r.localSynthUrl+'" download="'+r.id+'_local.mp4" '+
@@ -1310,7 +1342,6 @@ function renderAssets(){
           'font-size:11px;font-weight:700;text-decoration:none;width:100%;justify-content:center">'+
           '⬇ 下載合成影片（MP4）</a>';
       }
-      // n8n 合成結果下載
       if(r.synthVideoUrl){
         html += '<a href="'+r.synthVideoUrl+'" download="'+r.id+'_synth.mp4" '+
           'style="display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:6px;'+
@@ -1326,7 +1357,7 @@ function renderAssets(){
           '⬇ 字幕（SRT）</a>';
       }
       html += '</div>';
-      html += '<div style="display:flex;flex-wrap:wrap;gap:6px">';  // reopen flex
+      html += '<div style="display:flex;flex-wrap:wrap;gap:6px">';
     } else if(hasLines){
       r.voiceLines.forEach(function(line, i){
         if(!line.audioUrl) return;
@@ -1341,12 +1372,10 @@ function renderAssets(){
 
     html += '</div>';
 
-    // ── 音頻播放器 ──
     if(hasAudio && r.sceneType!=='對話模式'){
       html += '<audio controls src="'+r.voiceAudio+'" style="width:100%;height:28px;margin-top:8px;opacity:0.8"></audio>';
     }
 
-    // ── 音效生成 ──
     if(r.sfxKeywords || r.keywords){
       var sfxKw = escHtml((r.sfxKeywords||r.keywords||'').substring(0,30));
       var sfxDlStyle = r.sfxAudio ? 'inline-flex' : 'none';
@@ -1354,7 +1383,7 @@ function renderAssets(){
       var sfxDl  = r.sfxFilename || r.id+'_sfx.mp3';
       html += '<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.06)">';
       html += '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">';
-      html += '<button id="sfx-btn-'+r.id+'" onclick="generateSfx(this.dataset.id)" data-id="'+r.id+'" style="display:inline-flex;align-items:center;gap:4px;padding:5px 12px;border-radius:6px;border:1px solid rgba(251,191,36,0.3);background:rgba(251,191,36,0.08);color:var(--amber);font-size:10px;font-weight:600;cursor:pointer">🔊 搜尋音效</button>';
+      html += '<button id="sfx-btn-'+r.id+'" onclick="generateSfx(this.dataset.id)" data-id="'+r.id+'" style="display:inline-flex;align-items:center;gap:4px;padding:5px 12px;border-radius:6px;border:1px solid rgba(251,191,36,0.3);background:rgba(251,191,36,0.08);color:var(--amber);font-size:10px;font-weight:600;cursor:pointer">🔊 生成音效</button>';
       html += '<span style="font-size:10px;color:var(--muted)">'+sfxKw+'</span>';
       html += '<span id="sfx-status-'+r.id+'" style="font-size:10px"></span>';
       html += '<a id="sfx-dl-'+r.id+'" href="'+sfxSrc+'" download="'+sfxDl+'" style="display:'+sfxDlStyle+';align-items:center;gap:4px;padding:5px 12px;border-radius:6px;background:rgba(251,191,36,0.12);border:1px solid rgba(251,191,36,0.3);color:var(--amber);font-size:10px;font-weight:600;text-decoration:none">⬇ 音效</a>';
@@ -1367,31 +1396,25 @@ function renderAssets(){
       html += '</div>';
     }
 
-        html += '</div></div>';
+    html += '</div></div>';
     return html;
   }).join('');
 }
-
 
 // ── 真實影片/動畫：呼叫 n8n 合成影片+配音 ───────────────────────────────────
 async function synthesizeSceneVideo(rowId){
   var r = rows.find(function(r){ return r.id===rowId; });
   if(!r) return;
-
   var webhook = CFG.composeWebhook;
   if(!webhook){ alert('請先在 API 設定填入 Compose Webhook URL'); return; }
   if(!r.videoPreview){ alert('此鏡次沒有影片素材'); return; }
   if(!r.voiceAudio){   alert('此鏡次沒有配音，請先執行配音'); return; }
-
   var btn      = document.getElementById('synth-btn-'+rowId);
   var statusEl = document.getElementById('synth-status-'+rowId);
   function setStatus(msg, color){ if(statusEl){ statusEl.textContent=msg; statusEl.style.color=color||'var(--muted)'; } }
-
   if(btn) btn.disabled = true;
   setStatus('⏳ 準備音頻資料...', 'var(--amber)');
-
   try {
-    // 通用 blob/URL → base64 轉換函式
     function urlToBase64(url){
       return new Promise(function(resolve, reject){
         var xhr = new XMLHttpRequest();
@@ -1407,46 +1430,20 @@ async function synthesizeSceneVideo(rowId){
         xhr.send();
       });
     }
-
-    // 配音 blob → base64
     var audioBase64 = null;
-    try {
-      audioBase64 = await urlToBase64(r.voiceAudio);
-    } catch(e){ throw new Error('音頻轉換失敗：'+e.message); }
-
-    // 影片 blob → base64（blob: URL 無法被 n8n 伺服器存取，必須轉換）
+    try { audioBase64 = await urlToBase64(r.voiceAudio); } catch(e){ throw new Error('音頻轉換失敗：'+e.message); }
     setStatus('⏳ 準備影片資料（可能需要數秒）...', 'var(--amber)');
     var videoBase64 = null;
     var videoUrlForN8n = r.videoPreview;
     if(r.videoPreview && r.videoPreview.startsWith('blob:')){
-      try {
-        videoBase64 = await urlToBase64(r.videoPreview);
-        videoUrlForN8n = null; // 已轉 base64，不需再送 URL
-      } catch(e){ throw new Error('影片轉換失敗：'+e.message); }
+      try { videoBase64 = await urlToBase64(r.videoPreview); videoUrlForN8n = null; } catch(e){ throw new Error('影片轉換失敗：'+e.message); }
     }
-
     setStatus('⏳ 傳送到 n8n 合成中（請稍候）...', 'var(--cyan)');
-
-    var payload = {
-      id:          r.id,
-      sceneType:   r.sceneType,
-      video_url:   videoUrlForN8n,
-      videoBase64: videoBase64,
-      audioBase64: audioBase64,
-      dialog:      r.dialog || ''
-    };
-
-    var res = await fetch(webhook, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify(payload)
-    });
-
+    var payload = { id:r.id, sceneType:r.sceneType, video_url:videoUrlForN8n, videoBase64:videoBase64, audioBase64:audioBase64, dialog:r.dialog||'', sfxKeywords:r.sfxKeywords||'' };
+    var res = await fetch(webhook, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
     if(!res.ok) throw new Error('n8n 回傳錯誤 HTTP ' + res.status);
-
     var ct2 = res.headers.get('content-type') || '';
     var videoUrl2, srtUrl2;
-
     if(ct2.includes('video') || ct2.includes('octet-stream')){
       videoUrl2 = URL.createObjectURL(await res.blob());
     } else {
@@ -1454,27 +1451,19 @@ async function synthesizeSceneVideo(rowId){
       if(!text2 || !text2.trim()) throw new Error('n8n 回傳空回應，請確認 workflow 已 Publish');
       var data2;
       try { data2 = JSON.parse(text2); } catch(e){ throw new Error('n8n 回傳非 JSON：' + text2.substring(0,120)); }
-
-      // 相容 video_base64 或 videoBase64，以及陣列包裝
       var vb64b = data2.videoBase64 || data2.video_base64 || (Array.isArray(data2) && (data2[0].videoBase64 || data2[0].video_base64));
       if(!vb64b) throw new Error('n8n 未回傳影片資料，回傳內容：' + JSON.stringify(data2).substring(0,150));
-
       var bytes2 = atob(vb64b);
       var arr2   = new Uint8Array(bytes2.length);
       for(var b2=0; b2<bytes2.length; b2++) arr2[b2] = bytes2.charCodeAt(b2);
       videoUrl2 = URL.createObjectURL(new Blob([arr2], { type:'video/mp4' }));
-
       var sb64b = data2.srtBase64 || data2.srt_base64 || (Array.isArray(data2) && (data2[0].srtBase64 || data2[0].srt_base64));
-      if(sb64b){
-        srtUrl2 = URL.createObjectURL(new Blob([atob(sb64b)], { type:'text/plain;charset=utf-8' }));
-      }
+      if(sb64b){ srtUrl2 = URL.createObjectURL(new Blob([atob(sb64b)], { type:'text/plain;charset=utf-8' })); }
     }
-
     r.synthVideoUrl = videoUrl2;
     if(srtUrl2) r.synthSrtUrl = srtUrl2;
     setStatus('✅ 合成完成！', 'var(--green)');
     renderAssets();
-
   } catch(e){
     setStatus('✕ 失敗：' + e.message, 'var(--red)');
     if(btn) btn.disabled = false;
@@ -1485,22 +1474,14 @@ async function synthesizeSceneVideo(rowId){
 async function synthesizeDialogVideo(rowId){
   var r = rows.find(function(r){ return r.id===rowId; });
   if(!r || !r.voiceLines || !r.voiceLines.length){ alert('沒有配音資料，請先完成配音'); return; }
-
   var webhook = CFG.composeWebhook;
   if(!webhook){ alert('請先在 API 設定填入 Compose Webhook URL'); return; }
-
   var btn      = document.getElementById('synth-btn-'+rowId);
   var statusEl = document.getElementById('synth-status-'+rowId);
-
-  function setStatus(msg, color){
-    if(statusEl){ statusEl.textContent = msg; statusEl.style.color = color||'var(--muted)'; }
-  }
-
+  function setStatus(msg, color){ if(statusEl){ statusEl.textContent = msg; statusEl.style.color = color||'var(--muted)'; } }
   if(btn) btn.disabled = true;
   setStatus('⏳ 準備音頻資料...', 'var(--amber)');
-
   try {
-    // blob: URL → base64，用 XMLHttpRequest 相容 file:// 本機環境
     function blobUrlToBase64(url){
       return new Promise(function(resolve, reject){
         var xhr = new XMLHttpRequest();
@@ -1516,81 +1497,47 @@ async function synthesizeDialogVideo(rowId){
         xhr.send();
       });
     }
-
     var lines = [];
     for(var i=0; i<r.voiceLines.length; i++){
       var line = r.voiceLines[i];
       var audioBase64 = null;
-      if(line.audioUrl){
-        try { audioBase64 = await blobUrlToBase64(line.audioUrl); } catch(e){ /* 跳過 */ }
-      }
+      if(line.audioUrl){ try { audioBase64 = await blobUrlToBase64(line.audioUrl); } catch(e){} }
       lines.push({ speaker: line.speaker, dialog: line.dialog, audioBase64: audioBase64 });
     }
-
     setStatus('⏳ 傳送到 n8n 合成中（請稍候，可能需要 30~120 秒）...', 'var(--cyan)');
-
-    var payload = {
-      id:              r.id,
-      sceneType:       '對話模式',
-      assetsSessionId: CFG.assetsSessionId || null,
-      lines:           lines
-    };
-
-    var res = await fetch(webhook, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify(payload)
-    });
-
+    var payload = { id:r.id, sceneType:r.sceneType, assetsSessionId:CFG.assetsSessionId||null, lines:lines, sfxKeywords:r.sfxKeywords||'' };
+    var res = await fetch(webhook, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
     if(!res.ok) throw new Error('n8n 回傳錯誤 HTTP ' + res.status);
-
     var ct = res.headers.get('content-type') || '';
     var videoUrl, srtUrl;
-
     if(ct.includes('video') || ct.includes('octet-stream')){
-      // n8n 直接回傳 binary MP4
-      var videoBlob = await res.blob();
-      videoUrl = URL.createObjectURL(videoBlob);
+      videoUrl = URL.createObjectURL(await res.blob());
     } else {
-      // JSON 模式：{ videoBase64, srtBase64, filename, srtFilename }
       var text = await res.text();
       if(!text || !text.trim()) throw new Error('n8n 回傳空回應，請確認 workflow 已 Publish');
       var data;
       try { data = JSON.parse(text); } catch(e){ throw new Error('n8n 回傳非 JSON：' + text.substring(0,120)); }
-
-      // 相容 video_base64 或 videoBase64
       var vb64 = data.videoBase64 || data.video_base64 || (Array.isArray(data) && (data[0].videoBase64 || data[0].video_base64));
       if(!vb64) throw new Error('n8n 未回傳影片資料，回傳內容：' + JSON.stringify(data).substring(0,150));
-
       var bytes = atob(vb64);
       var arr   = new Uint8Array(bytes.length);
       for(var b=0; b<bytes.length; b++) arr[b] = bytes.charCodeAt(b);
       videoUrl = URL.createObjectURL(new Blob([arr], { type:'video/mp4' }));
-
-      // 相容 srt_base64 或 srtBase64
       var sb64 = data.srtBase64 || data.srt_base64 || (Array.isArray(data) && (data[0].srtBase64 || data[0].srt_base64));
-      if(sb64){
-        srtUrl = URL.createObjectURL(new Blob([atob(sb64)], { type:'text/plain;charset=utf-8' }));
-      }
+      if(sb64){ srtUrl = URL.createObjectURL(new Blob([atob(sb64)], { type:'text/plain;charset=utf-8' })); }
     }
-
     r.synthVideoUrl = videoUrl;
     if(srtUrl) r.synthSrtUrl = srtUrl;
-
     setStatus('✅ 合成完成！', 'var(--green)');
-
-    // 重新渲染素材庫以顯示下載按鈕
     renderAssets();
-
   } catch(e){
     setStatus('✕ 失敗：' + e.message, 'var(--red)');
     if(btn) btn.disabled = false;
   }
 }
 
-// ── FFmpeg.wasm 輔助（WebM → MP4）────────────────────────────────────────────
+// ── FFmpeg.wasm ────────────────────────────────────────────────────────────────
 var _ffmpeg = null;
-
 async function loadFFmpeg(){
   if(_ffmpeg && _ffmpeg.isLoaded()) return _ffmpeg;
   if(typeof FFmpeg === 'undefined') throw new Error('FFmpeg.wasm 未載入，請確認網路連線');
@@ -1598,7 +1545,6 @@ async function loadFFmpeg(){
   await _ffmpeg.load();
   return _ffmpeg;
 }
-
 async function convertToMp4(inputBlob){
   var ff = await loadFFmpeg();
   var inData = new Uint8Array(await inputBlob.arrayBuffer());
@@ -1609,46 +1555,32 @@ async function convertToMp4(inputBlob){
   return new Blob([out.buffer],{ type:'video/mp4' });
 }
 
-// ── 本機合成影片（純瀏覽器，無需 n8n）────────────────────────────────────────
+// ── 本機合成影片 ────────────────────────────────────────────────────────────────
 async function composeShotLocally(rowId){
   var r = rows.find(function(r){ return r.id===rowId; });
   if(!r) return;
-
-  var isDialog  = r.sceneType === '對話模式';
-  var hasVoice  = isDialog
-    ? (r.voiceLines && r.voiceLines.some(function(l){ return l.audioUrl; }))
-    : !!r.voiceAudio;
+  var isDialog  = r.sceneType === '對話模式' || r.sceneType === '禱告';
+  var hasVoice  = isDialog ? (r.voiceLines && r.voiceLines.some(function(l){ return l.audioUrl; })) : !!r.voiceAudio;
   var hasVideo  = !isDialog && !!r.videoPreview;
-
   if(!hasVoice){ alert('請先完成配音再合成'); return; }
   if(!isDialog && !hasVideo){ alert('請先取得影片素材再合成'); return; }
-
   var btn      = document.getElementById('local-synth-btn-'+rowId);
   var statusEl = document.getElementById('local-synth-status-'+rowId);
   function setS(msg, color){ if(statusEl){ statusEl.textContent=msg; statusEl.style.color=color||'var(--muted)'; } }
   if(btn) btn.disabled = true;
-
-  var PADDING    = 0.4;   // 前後各 0.4 秒停頓
-  var GAP        = 0.25;  // 對話模式每句之間的空白
-
+  var PADDING = 0.4, GAP = 0.25;
   var W = 1280, H = 720;
   var canvas = document.createElement('canvas');
   canvas.width = W; canvas.height = H;
   var c2d = canvas.getContext('2d');
-
   var audioCtx;
   try {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     if(audioCtx.state === 'suspended') await audioCtx.resume();
-
-    // ─── 1. 準備音頻 ───────────────────────────────────────────────
     setS('⏳ 載入音頻...', 'var(--amber)');
-
-    var combinedBuf;   // AudioBuffer 最終要播放的
-    var timeline = []; // 對話模式用：[{speaker,start,end}]，時間相對於 combinedBuf 開頭
-
+    var combinedBuf;
+    var timeline = [];
     if(isDialog){
-      // 逐句解碼
       var sampleRate = audioCtx.sampleRate;
       var lineBuffers = [];
       for(var i=0; i<r.voiceLines.length; i++){
@@ -1660,22 +1592,15 @@ async function composeShotLocally(rowId){
           lineBuffers.push({ speaker:line.speaker, buf:buf });
         } catch(e){ lineBuffers.push({ speaker:line.speaker, buf:null }); }
       }
-
-      // 計算總 samples
       var padSmp = Math.floor(PADDING * sampleRate);
       var gapSmp = Math.floor(GAP * sampleRate);
-      var nCh    = 1;
+      var nCh = 1;
       lineBuffers.forEach(function(lb){ if(lb.buf) nCh = Math.max(nCh, lb.buf.numberOfChannels); });
-
       var totalSmp = padSmp;
       lineBuffers.forEach(function(lb){ totalSmp += (lb.buf ? lb.buf.length : 0) + gapSmp; });
       totalSmp += padSmp;
-
       combinedBuf = audioCtx.createBuffer(nCh, totalSmp, sampleRate);
-
-      // 填充並建立 timeline
-      var writePos = padSmp;
-      var tCursor  = PADDING;
+      var writePos = padSmp, tCursor = PADDING;
       lineBuffers.forEach(function(lb){
         var dur = lb.buf ? lb.buf.duration : 0;
         timeline.push({ speaker:lb.speaker, start:tCursor, end:tCursor + dur });
@@ -1687,38 +1612,26 @@ async function composeShotLocally(rowId){
           }
           writePos += lb.buf.length;
         }
-        writePos  += gapSmp;
-        tCursor   += dur + GAP;
+        writePos += gapSmp; tCursor += dur + GAP;
       });
-
     } else {
-      // 單一配音
       var ab  = await (await fetch(r.voiceAudio)).arrayBuffer();
       combinedBuf = await audioCtx.decodeAudioData(ab);
     }
-
     var totalDuration = combinedBuf.duration + PADDING * 2;
-
-    // ─── 2. 準備影片（非對話）或角色圖像（對話）────────────────────
     setS('⏳ 載入影片...', 'var(--amber)');
-
-    var bgVideo = null;           // 非對話背景影片
-    var charEls = { A:{}, B:{} }; // 對話角色媒體元素
-
+    var bgVideo = null;
+    var charEls = { A:{}, B:{} };
     if(!isDialog){
       bgVideo = document.createElement('video');
-      bgVideo.crossOrigin = 'anonymous';
-      bgVideo.muted = true;
-      bgVideo.loop  = true;
-      bgVideo.src   = r.videoPreview;
+      bgVideo.crossOrigin = 'anonymous'; bgVideo.muted = true; bgVideo.loop = true;
+      bgVideo.src = r.videoPreview;
       await new Promise(function(res, rej){ bgVideo.onloadedmetadata=res; bgVideo.onerror=rej; bgVideo.load(); });
-      var vidDur   = isFinite(bgVideo.duration) ? bgVideo.duration : totalDuration + 5;
+      var vidDur = isFinite(bgVideo.duration) ? bgVideo.duration : totalDuration + 5;
       var maxStart = Math.max(0, vidDur - totalDuration);
       bgVideo.currentTime = maxStart > 0 ? Math.random() * maxStart : 0;
       await new Promise(function(res){ var fn=function(){ bgVideo.removeEventListener('seeked',fn); res(); }; bgVideo.addEventListener('seeked',fn); });
-
     } else {
-      // 嘗試載入角色素材（PLAYER_VIDEOS）
       var PV = PLAYER_VIDEOS;
       for(var role of ['a','b']){
         var key = role.toUpperCase();
@@ -1727,8 +1640,7 @@ async function composeShotLocally(rowId){
           if(!PV[role][type]) continue;
           if(type==='idle'){
             var img = new Image();
-            img.crossOrigin = 'anonymous';
-            img.src = PV[role][type];
+            img.crossOrigin = 'anonymous'; img.src = PV[role][type];
             await new Promise(function(res){ img.onload=res; img.onerror=res; });
             charEls[key][type] = img;
           } else {
@@ -1741,149 +1653,83 @@ async function composeShotLocally(rowId){
         }
       }
     }
-
-    // ─── 3. MediaRecorder 設定 ─────────────────────────────────────
     var dest   = audioCtx.createMediaStreamDestination();
     var cStream = canvas.captureStream(30);
     var mixed  = new MediaStream([...cStream.getVideoTracks(), ...dest.stream.getAudioTracks()]);
-
     var mime = ['video/webm;codecs=vp8,opus','video/webm;codecs=vp9,opus','video/webm','video/mp4']
                .find(function(m){ return MediaRecorder.isTypeSupported(m); }) || 'video/webm';
-
     var recorder = new MediaRecorder(mixed, { mimeType: mime, videoBitsPerSecond: 5000000 });
     var chunks = [];
     recorder.ondataavailable = function(e){ if(e.data.size>0) chunks.push(e.data); };
-
-    // ─── 4. 排程音頻播放 ───────────────────────────────────────────
     setS('🎬 合成中 0%...', 'var(--cyan)');
-
     recorder.start(100);
     var t0 = audioCtx.currentTime;
-
     var audioSrc = audioCtx.createBufferSource();
     audioSrc.buffer = combinedBuf;
     audioSrc.connect(dest);
-    audioSrc.start(t0 + PADDING); // 配音在停頓之後開始
-
+    audioSrc.start(t0 + PADDING);
     if(bgVideo) bgVideo.play().catch(function(){});
-    // 啟動對話角色影片
-    for(var rk in charEls){
-      if(charEls[rk].talk && charEls[rk].talk.play) charEls[rk].talk.play().catch(function(){});
-    }
-
-    // ─── 5. Canvas 繪製迴圈 ────────────────────────────────────────
+    for(var rk in charEls){ if(charEls[rk].talk && charEls[rk].talk.play) charEls[rk].talk.play().catch(function(){}); }
     await new Promise(function(resolve){
       function draw(){
         var elapsed = audioCtx.currentTime - t0;
         var pct = Math.min(100, Math.round(elapsed / totalDuration * 100));
         setS('🎬 合成中 '+pct+'%... （請勿切換標籤）', 'var(--cyan)');
-
         if(!isDialog && bgVideo){
-          // 非對話：直接繪製背景影片
           try { c2d.drawImage(bgVideo, 0, 0, W, H); } catch(e){}
-
         } else {
-          // 對話模式：依 timeline 判斷目前說話角色
-          var audioElapsed = elapsed - PADDING; // combinedBuf 內的時間軸
+          var audioElapsed = elapsed - PADDING;
           var activeSpeaker = null;
           for(var ti=0; ti<timeline.length; ti++){
-            if(audioElapsed >= timeline[ti].start && audioElapsed < timeline[ti].end){
-              activeSpeaker = timeline[ti].speaker;
-              break;
-            }
+            if(audioElapsed >= timeline[ti].start && audioElapsed < timeline[ti].end){ activeSpeaker = timeline[ti].speaker; break; }
           }
-          // 深色背景
-          c2d.fillStyle = '#0d1320';
-          c2d.fillRect(0, 0, W, H);
-
+          c2d.fillStyle = '#0d1320'; c2d.fillRect(0, 0, W, H);
           var hasChrA = charEls.A.talk || charEls.A.idle;
           var hasChrB = charEls.B.talk || charEls.B.idle;
-
           if(hasChrA || hasChrB){
-            // 單一畫面：根據說話者切換顯示
-            var curRole = activeSpeaker || 'A'; // 無說話者時預設顯示 A
+            var curRole = activeSpeaker || 'A';
             var ce = charEls[curRole];
-            // 若目前角色無素材則嘗試另一方
-            if(!ce || (!ce.talk && !ce.idle)){
-              curRole = curRole === 'A' ? 'B' : 'A';
-              ce = charEls[curRole];
-            }
+            if(!ce || (!ce.talk && !ce.idle)){ curRole = curRole === 'A' ? 'B' : 'A'; ce = charEls[curRole]; }
             var el = ce ? (activeSpeaker ? (ce.talk||ce.idle) : (ce.idle||ce.talk)) : null;
-            if(el){
-              try { c2d.drawImage(el, 0, 0, W, H); } catch(e){}
-            } else {
-              c2d.fillStyle = '#0d1320';
-              c2d.fillRect(0, 0, W, H);
-            }
+            if(el){ try { c2d.drawImage(el, 0, 0, W, H); } catch(e){} }
+            else { c2d.fillStyle = '#0d1320'; c2d.fillRect(0, 0, W, H); }
           } else {
-            // 無角色素材：全畫面顯示說話角色大字
-            c2d.fillStyle = '#0d1320';
-            c2d.fillRect(0, 0, W, H);
+            c2d.fillStyle = '#0d1320'; c2d.fillRect(0, 0, W, H);
             if(activeSpeaker){
               var spkColor = activeSpeaker==='A' ? '#22d3ee' : '#a78bfa';
               c2d.fillStyle = spkColor;
               c2d.font = 'bold 160px "JetBrains Mono", monospace';
-              c2d.textAlign = 'center';
-              c2d.textBaseline = 'middle';
+              c2d.textAlign = 'center'; c2d.textBaseline = 'middle';
               c2d.fillText(activeSpeaker, W/2, H/2);
             }
           }
         }
-
         if(elapsed >= totalDuration){
           if(bgVideo) bgVideo.pause();
           for(var rk2 in charEls){ if(charEls[rk2].talk&&charEls[rk2].talk.pause) charEls[rk2].talk.pause(); }
-          recorder.stop();
-          resolve();
-        } else {
-          requestAnimationFrame(draw);
-        }
+          recorder.stop(); resolve();
+        } else { requestAnimationFrame(draw); }
       }
       requestAnimationFrame(draw);
     });
-
     await new Promise(function(res){ recorder.onstop = res; });
     audioCtx.close();
-
     var blob = new Blob(chunks, { type: mime });
-
-    if(!isDialog){
-      // 非對話模式：轉換為 MP4
-      setS('⏳ 轉換為 MP4（首次需載入約 20MB，請稍候）...', 'var(--amber)');
-      try {
-        var mp4Blob = await convertToMp4(blob);
-        r.localSynthUrl = URL.createObjectURL(mp4Blob);
-        r.localSynthExt = 'mp4';
-      } catch(convErr){
-        // 轉換失敗則退回原始格式
-        r.localSynthUrl = URL.createObjectURL(blob);
-        r.localSynthExt = mime.includes('mp4') ? 'mp4' : 'webm';
-        setS('⚠ MP4 轉換失敗，退回原始格式（'+r.localSynthExt.toUpperCase()+'）：'+convErr.message, 'var(--amber)');
-        if(btn) btn.disabled = false;
-        renderAssets();
-        return;
-      }
-    } else {
-      // 對話模式：同樣轉換為 MP4
-      setS('⏳ 轉換為 MP4（首次需載入約 20MB，請稍候）...', 'var(--amber)');
-      try {
-        var mp4BlobD = await convertToMp4(blob);
-        r.localSynthUrl = URL.createObjectURL(mp4BlobD);
-        r.localSynthExt = 'mp4';
-      } catch(convErrD){
-        r.localSynthUrl = URL.createObjectURL(blob);
-        r.localSynthExt = mime.includes('mp4') ? 'mp4' : 'webm';
-        setS('⚠ MP4 轉換失敗，退回原始格式（'+r.localSynthExt.toUpperCase()+'）：'+convErrD.message, 'var(--amber)');
-        if(btn) btn.disabled = false;
-        renderAssets();
-        return;
-      }
+    setS('⏳ 轉換為 MP4（首次需載入約 20MB，請稍候）...', 'var(--amber)');
+    try {
+      var mp4Blob = await convertToMp4(blob);
+      r.localSynthUrl = URL.createObjectURL(mp4Blob);
+      r.localSynthExt = 'mp4';
+    } catch(convErr){
+      r.localSynthUrl = URL.createObjectURL(blob);
+      r.localSynthExt = mime.includes('mp4') ? 'mp4' : 'webm';
+      setS('⚠ MP4 轉換失敗，退回原始格式（'+r.localSynthExt.toUpperCase()+'）：'+convErr.message, 'var(--amber)');
+      if(btn) btn.disabled = false;
+      renderAssets(); return;
     }
-
     setS('✅ 完成！', 'var(--green)');
     if(btn) btn.disabled = false;
     renderAssets();
-
   } catch(e){
     if(audioCtx) try{ audioCtx.close(); }catch(_){}
     setS('✕ 失敗：'+e.message, 'var(--red)');
@@ -1892,24 +1738,43 @@ async function composeShotLocally(rowId){
 }
 
 // ── SETTINGS ─────────────────────────────────────────────────────────────────
+// ✅ 修正後的 saveSettings：用安全的 getVal 輔助，避免讀不存在的 element
+function getVal(id, fallback){
+  var el = document.getElementById(id);
+  return el ? el.value.trim() : (fallback !== undefined ? fallback : '');
+}
+
 function saveSettings(){
-  CFG.fishWebhook     = document.getElementById('s-fish-webhook').value.trim();
-  var cw = document.getElementById('s-compose-webhook');
-  if(cw) CFG.composeWebhook = cw.value.trim();
-  CFG.fishVoiceA    = document.getElementById('s-fish-voice-a').value.trim();
-  CFG.fishVoiceB    = document.getElementById('s-fish-voice-b').value.trim();
-  CFG.pixabay       = document.getElementById('s-pixabay').value.trim();
-  var fs = document.getElementById('s-freesound');
-  if(fs) CFG.freesound = fs.value.trim();
-  var uw = document.getElementById('s-upload-assets-webhook');
-  if(uw) CFG.uploadAssetsWebhook = uw.value.trim();
-  CFG.pexels        = document.getElementById('s-pexels').value.trim();
+  CFG.fishWebhook          = getVal('s-fish-webhook',          CFG.fishWebhook);
+  CFG.composeWebhook       = getVal('s-compose-webhook',       CFG.composeWebhook);
+  // ✅ 從設定頁的新欄位讀取 Voice ID（若欄位存在才覆蓋）
+  // ── 持久化到 localStorage ────────────────────────────
+  var va = getVal('s-fish-voice-a', null);
+  var vb = getVal('s-fish-voice-b', null);
+  if(va !== null) CFG.fishVoiceA = va;
+  if(vb !== null) CFG.fishVoiceB = vb;
+  CFG.pexels               = getVal('s-pexels',                CFG.pexels);
+  CFG.pixabay              = getVal('s-pixabay',               CFG.pixabay);
+  CFG.freesound            = getVal('s-freesound',             CFG.freesound);
+  CFG.uploadAssetsWebhook  = getVal('s-upload-assets-webhook', CFG.uploadAssetsWebhook);
+  // 同步到 AB 設定頁的欄位
   var ela = document.getElementById('ab-fish-voice-a');
   var elb = document.getElementById('ab-fish-voice-b');
   if(ela) ela.value = CFG.fishVoiceA;
   if(elb) elb.value = CFG.fishVoiceB;
+  // 💾 持久化到 localStorage（重開頁面後自動讀回）
+  try {
+    localStorage.setItem('cfg_fishWebhook',         CFG.fishWebhook);
+    localStorage.setItem('cfg_composeWebhook',      CFG.composeWebhook);
+    localStorage.setItem('cfg_fishVoiceA',          CFG.fishVoiceA);
+    localStorage.setItem('cfg_fishVoiceB',          CFG.fishVoiceB);
+    localStorage.setItem('cfg_pexels',              CFG.pexels);
+    localStorage.setItem('cfg_pixabay',             CFG.pixabay);
+    localStorage.setItem('cfg_freesound',           CFG.freesound);
+    localStorage.setItem('cfg_uploadAssetsWebhook', CFG.uploadAssetsWebhook);
+  } catch(e){}
   updateLeds();
-  alert('✓ 設定已儲存');
+  alert('✓ 設定已儲存（下次重開頁面會自動載入）');
 }
 
 function updateLeds(){
@@ -1919,26 +1784,27 @@ function updateLeds(){
   if(tl){  tl.style.background=CFG.fishWebhook?'var(--cyan)':'rgba(255,255,255,0.15)'; tl.classList.toggle('on',!!CFG.fishWebhook); }
   if(pl){  pl.style.background=CFG.pexels?'var(--green)':'rgba(255,255,255,0.15)';     pl.classList.toggle('on',!!CFG.pexels); }
   if(pbl){ pbl.style.background=CFG.pixabay?'var(--amber)':'rgba(255,255,255,0.15)';  pbl.classList.toggle('on',!!CFG.pixabay); }
-  var fsl = document.getElementById('dot-freesound-led');
-  if(fsl){ fsl.style.background=CFG.freesound?'var(--green)':'rgba(255,255,255,0.15)'; fsl.classList.toggle('on',!!CFG.freesound); }
 }
 
 // ── UTILS ─────────────────────────────────────────────────────────────────────
-function escHtml(s){
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-function escAttr(s){
-  return String(s).replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-}
-
+function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function escAttr(s){ return String(s).replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 function sleep(ms){ return new Promise(function(resolve){ setTimeout(resolve,ms); }); }
 
 // ── RUN ──────────────────────────────────────────────────────────────────────
 async function runRow(id){
   var r = rows.find(function(r){ return r.id===id; });
   if(!r) return;
-  if(r.sceneType === '對話模式'){
+  // ✅ 執行前先檢查必要設定，給出明確提示
+  if(!CFG.fishWebhook){
+    alert('❌ 尚未設定 Fish Audio Webhook URL\n\n請先到「API 設定」頁填入 n8n Webhook URL 並按「儲存設定」');
+    return;
+  }
+  if(!CFG.fishVoiceA && !CFG.fishVoiceB){
+    alert('❌ 尚未設定 Voice ID\n\n請到 fish.audio 選好聲音，複製 reference_id 後到「AB 設定」或「API 設定」填入');
+    return;
+  }
+  if(r.sceneType === '對話模式' || r.sceneType === '禱告'){
     runDialogVoices(r);
   } else {
     runVoice(r);
@@ -1951,49 +1817,39 @@ async function runSelectedVoice(){
   var sel = rows.filter(function(r){ return r.selected; });
   if(!sel.length){ alert('請先選取列'); return; }
   for(var i=0;i<sel.length;i++){
-    if(sel[i].sceneType==='對話模式') runDialogVoices(sel[i]);
+    if(sel[i].sceneType==='對話模式' || sel[i].sceneType==='禱告') runDialogVoices(sel[i]);
     else runVoice(sel[i]);
     await sleep(300);
   }
 }
 
 async function runSelectedVideo(){
-  var sel = rows.filter(function(r){ return r.selected&&r.sceneType!=='對話模式'; });
+  var sel = rows.filter(function(r){ return r.selected&&r.sceneType!=='對話模式'&&r.sceneType!=='禱告'; });
   if(!sel.length){ alert('請先選取真實影片或AI影片的列'); return; }
   for(var i=0;i<sel.length;i++){ runVideo(sel[i]); await sleep(500); }
 }
 
-// ── 上傳角色素材到 n8n 伺服器（快取，只需一次）────────────────────────────────
+// ── 上傳角色素材到 n8n 伺服器 ────────────────────────────────────────────────
 async function uploadAssetsToServer(){
   var btn = document.getElementById('btn-upload-assets');
   var statusEl = document.getElementById('upload-assets-status');
-  var AS = PLAYER_VIDEOS; // { a:{talk,idle}, b:{talk,idle} }
-
-  var hasAny = AS.a.talk || AS.a.idle || AS.b.talk || AS.b.idle;
+  var AS = PLAYER_VIDEOS;
+  var hasAny = AS.a.talk || AS.a.idle || AS.b.talk || AS.b.idle || AS.a.pray || AS.b.pray;
   if(!hasAny){ alert('請先在上方上傳 A/B 角色的說話影片或靜止圖片'); return; }
   if(!CFG.uploadAssetsWebhook){ alert('請先填入 Upload Assets Webhook URL'); return; }
-
   btn.disabled = true;
   statusEl.textContent = '上傳中...';
   statusEl.style.color = 'var(--amber)';
-
   var sid = 'ab_' + Date.now();
   var tasks = [];
-  var typeMap = { talk:'talk', idle:'idle' };
   for(var role of ['a','b']){
-    for(var type of ['talk','idle']){
+    for(var type of ['talk','idle','pray']){
       var url = AS[role][type];
       if(!url) continue;
-      tasks.push({ role, type, url, fileType: (role==='a'?'talk_a':'talk_b') + (type==='idle'?'_idle':'') });
+      tasks.push({ role, type, url });
     }
   }
-
-  // Rename to match server expectations
-  var fileTypeMap = {
-    'a_talk': 'talk_a', 'a_idle': 'idle_a',
-    'b_talk': 'talk_b', 'b_idle': 'idle_b'
-  };
-
+  var fileTypeMap = { 'a_talk':'talk_a', 'a_idle':'idle_a', 'b_talk':'talk_b', 'b_idle':'idle_b', 'a_pray':'pray_a', 'b_pray':'pray_b' };
   var uploaded = 0;
   for(var i=0; i<tasks.length; i++){
     var t = tasks[i];
@@ -2008,11 +1864,7 @@ async function uploadAssetsToServer(){
         reader.readAsDataURL(blob);
       });
       var res = await Promise.race([
-        fetch(CFG.uploadAssetsWebhook, {
-          method: 'POST',
-          headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({ assetsSessionId: sid, fileType: ftype, fileBase64: b64 })
-        }),
+        fetch(CFG.uploadAssetsWebhook, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ assetsSessionId:sid, fileType:ftype, fileBase64:b64 }) }),
         new Promise(function(_, reject){ setTimeout(function(){ reject(new Error('上傳超時')); }, 120000); })
       ]);
       if(!res.ok) throw new Error('HTTP ' + res.status);
@@ -2024,37 +1876,88 @@ async function uploadAssetsToServer(){
       return;
     }
   }
-
   CFG.assetsSessionId = sid;
   statusEl.textContent = '✅ 上傳完成（' + uploaded + ' 個檔案），Session ID：' + sid;
   statusEl.style.color = 'var(--green)';
   btn.disabled = false;
 }
 
-
 async function runAll(){
   for(var i=0;i<rows.length;i++){
     var r = rows[i];
     var busy = r.videoStatus==='processing'||r.voiceStatus==='processing';
     if(busy) continue;
-    if(r.sceneType === '對話模式'){
-      runDialogVoices(r);
-    } else {
-      runVoice(r);
-      await sleep(300);
-      runVideo(r);
-    }
+    if(r.sceneType === '對話模式'){ runDialogVoices(r); }
+    else { runVoice(r); await sleep(300); runVideo(r); }
     await sleep(400);
   }
 }
 
-// 對話模式：逐句呼叫 Fish Audio，每句各自產生音頻存入 r.voiceLines
+async function concatAllShots(){
+  if(!CFG.concatWebhook){ alert('❌ 尚未設定 Concat Webhook URL'); return; }
+  const ready = rows.filter(function(r){ return r.synthVideoUrl; });
+  if(!ready.length){ alert('⚠️ 還沒有已合成的鏡次！\n請先對每個鏡次執行「▶ 執行」並合成影片。'); return; }
+  const btn = document.getElementById('btn-concat-all');
+  btn.disabled = true;
+  btn.textContent = '⏳ 串接中…';
+  try {
+    function blobToBase64(url){
+      return new Promise(function(resolve, reject){
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', url, true);
+        xhr.responseType = 'blob';
+        xhr.onload = function(){
+          var reader = new FileReader();
+          reader.onload = function(e){ resolve(e.target.result.split(',')[1]); };
+          reader.onerror = reject;
+          reader.readAsDataURL(xhr.response);
+        };
+        xhr.onerror = reject;
+        xhr.send();
+      });
+    }
+    btn.textContent = '⏳ 準備資料（0/' + ready.length + '）…';
+    var shots = [];
+    for(var i=0; i<ready.length; i++){
+      btn.textContent = '⏳ 準備資料（' + (i+1) + '/' + ready.length + '）…';
+      var b64 = await blobToBase64(ready[i].synthVideoUrl);
+      shots.push({ id: ready[i].id, videoBase64: b64 });
+    }
+    btn.textContent = '⏳ 傳送到 n8n 串接中…';
+    var res = await fetch(CFG.concatWebhook, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ shots: shots })
+    });
+    if(!res.ok) throw new Error('n8n 回傳 HTTP ' + res.status);
+    var data = await res.json();
+    var vb64 = data.videoBase64 || (Array.isArray(data) && data[0].videoBase64);
+    if(!vb64) throw new Error('n8n 未回傳影片：' + JSON.stringify(data).slice(0,120));
+    var bytes = atob(vb64);
+    var arr = new Uint8Array(bytes.length);
+    for(var b=0; b<bytes.length; b++) arr[b] = bytes.charCodeAt(b);
+    var blob = new Blob([arr], { type: 'video/mp4' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'full_video.mp4';
+    a.click();
+    var dur = data.duration || (Array.isArray(data) && data[0].duration) || '?';
+    btn.textContent = '✅ 完成（' + (data.segments || ready.length) + ' 鏡次，' + dur + 's）';
+    setTimeout(function(){ btn.textContent = '🎞 串接全片'; btn.disabled = false; }, 4000);
+  } catch(e){
+    alert('❌ 串接失敗：' + e.message);
+    btn.textContent = '🎞 串接全片';
+    btn.disabled = false;
+  }
+}
+
+// 對話模式：逐句呼叫 Fish Audio
 async function runDialogVoices(r){
   setRowState(r,'voice','processing');
   try {
     if(!CFG.fishWebhook) throw new Error('尚未設定 Fish Audio Webhook URL');
-    if(!CFG.fishVoiceA && !CFG.fishVoiceB) throw new Error('請先在「AB 設定」填入 Voice ID');
-
+    if(!CFG.fishVoiceA && !CFG.fishVoiceB) throw new Error('請先在「AB 設定」上傳音檔克隆 A/B 角色聲音');
     var dialog = r.dialog.replace(/\\n/g,'\n');
     var lines = dialog.split('\n').map(function(l){ return l.trim(); }).filter(Boolean);
     var sentences = [];
@@ -2064,19 +1967,14 @@ async function runDialogVoices(r){
       if(mA && mA[1].trim()) sentences.push({ speaker:'A', dialog: mA[1].trim() });
       else if(mB && mB[1].trim()) sentences.push({ speaker:'B', dialog: mB[1].trim() });
     });
-    if(!sentences.length) throw new Error('找不到 A：/B：格式的對話內容');
-
+    if(!sentences.length) throw new Error('找不到 A：/B：格式的對話內容\n\n請在對話內容欄輸入：\nA：你好\nB：你好啊');
     r.voiceLines = [];
     for(var i=0; i<sentences.length; i++){
       var s = sentences[i];
       var voiceId = s.speaker==='B' ? CFG.fishVoiceB : CFG.fishVoiceA;
-      if(!voiceId){ r.voiceLines.push({ speaker:s.speaker, dialog:s.dialog, audioUrl:null }); continue; }
+      if(!voiceId){ r.voiceLines.push({ speaker:s.speaker, dialog:s.dialog, audioUrl:null, error:'未設定 Voice ID' }); continue; }
       try {
-        var res = await fetch(CFG.fishWebhook, {
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ id:r.id+'_'+i, speaker:s.speaker, text:s.dialog, reference_id:voiceId, speed:0.9 })
-        });
+        var res = await fetch(CFG.fishWebhook, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ id:r.id+'_'+i, speaker:s.speaker, text:s.dialog, reference_id:voiceId, speed:0.8 }) });
         if(!res.ok) throw new Error('HTTP '+res.status);
         var ct = res.headers.get('content-type')||'';
         var audioUrl;
@@ -2085,24 +1983,24 @@ async function runDialogVoices(r){
           audioUrl = URL.createObjectURL(blob);
         } else {
           var data = await res.json();
-          audioUrl = data.audio_url||data.audioUrl||data.url||null;
-          if(audioUrl){
-            try { var b2=await fetch(audioUrl).then(function(rr){return rr.blob();}); audioUrl=URL.createObjectURL(b2); } catch(_){}
+          if(data.audioBase64){
+            var bytes = Uint8Array.from(atob(data.audioBase64), function(c){ return c.charCodeAt(0); });
+            audioUrl = URL.createObjectURL(new Blob([bytes], { type: 'audio/mpeg' }));
+          } else {
+            audioUrl = data.audio_url||data.audioUrl||data.url||null;
+            if(audioUrl){ try { var b2=await fetch(audioUrl).then(function(rr){return rr.blob();}); audioUrl=URL.createObjectURL(b2); } catch(_){} }
           }
         }
         r.voiceLines.push({ speaker:s.speaker, dialog:s.dialog, audioUrl:audioUrl });
       } catch(e){
         r.voiceLines.push({ speaker:s.speaker, dialog:s.dialog, audioUrl:null, error:e.message });
       }
-      // 每完成一句就更新預覽
       setRowState(r,'voice','processing');
     }
     r.voiceAudio = (r.voiceLines.find(function(l){return l.audioUrl;})||{}).audioUrl || null;
     setRowState(r,'voice','done');
-    // 自動合成影片
-    if(CFG.composeWebhook){
-      synthesizeDialogVideo(r.id);
-    } else {
+    if(CFG.composeWebhook){ synthesizeDialogVideo(r.id); }
+    else {
       var cell = document.getElementById('status-'+r.id);
       if(cell) cell.innerHTML += '<br><span onclick="switchTab(\'assets\')" style="font-size:9px;color:var(--cyan);cursor:pointer;text-decoration:underline">→ 素材庫合成</span>';
     }
@@ -2112,28 +2010,18 @@ async function runDialogVoices(r){
   }
 }
 
-
-
-
 // ── VIDEO (Pexels / Pixabay) ──────────────────────────────────────────────────
-// targetRow = 實際要寫入結果的 row，role = 'A' 或 'B'
 async function runVoice(r, targetRow, role){
   targetRow = targetRow || r;
   role = role || r.speaker || 'A';
   setRowState(targetRow,'voice','processing');
   try {
-    if(!CFG.fishWebhook) throw new Error('尚未設定 Fish Audio Webhook URL（API 設定頁）');
+    if(!CFG.fishWebhook) throw new Error('尚未設定 TTS Webhook URL（API 設定頁）');
     var voiceId = role === 'B' ? CFG.fishVoiceB : CFG.fishVoiceA;
-    if(!voiceId) throw new Error('請先在「AB 設定」填入 '+role+' 角色的 Fish Audio Voice ID');
-
+    if(!voiceId) throw new Error('請先在「AB 設定」上傳音檔克隆 '+role+' 角色的聲音');
     var text = extractSpeakerText(r.dialog, role);
     if(!text) throw new Error('找不到角色 '+role+' 的台詞');
-
-    var res = await fetch(CFG.fishWebhook, {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ id: r.id, speaker: role, text: text, reference_id: voiceId, speed: 0.9 })
-    });
+    var res = await fetch(CFG.fishWebhook, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ id:r.id, speaker:role, text:text, reference_id:voiceId, speed:0.8 }) });
     if(!res.ok) throw new Error('Fish Audio HTTP '+res.status);
     var ct = res.headers.get('content-type') || '';
     var audioUrl;
@@ -2142,21 +2030,23 @@ async function runVoice(r, targetRow, role){
       audioUrl = URL.createObjectURL(blob);
     } else {
       var data = await res.json();
-      audioUrl = data.audio_url || data.audioUrl || data.url || null;
-      if(audioUrl && !audioUrl.startsWith('blob') && !audioUrl.startsWith('http')){
-        var bytes = atob(audioUrl);
-        var arr = new Uint8Array(bytes.length);
-        for(var i=0;i<bytes.length;i++) arr[i]=bytes.charCodeAt(i);
-        audioUrl = URL.createObjectURL(new Blob([arr],{type:'audio/mpeg'}));
+      if(data.audioBase64){
+        var bytes = Uint8Array.from(atob(data.audioBase64), function(c){ return c.charCodeAt(0); });
+        audioUrl = URL.createObjectURL(new Blob([bytes], { type: 'audio/mpeg' }));
+      } else {
+        audioUrl = data.audio_url || data.audioUrl || data.url || null;
+        if(audioUrl && !audioUrl.startsWith('blob') && !audioUrl.startsWith('http')){
+          var b64bytes = atob(audioUrl);
+          var arr = new Uint8Array(b64bytes.length);
+          for(var i=0;i<b64bytes.length;i++) arr[i]=b64bytes.charCodeAt(i);
+          audioUrl = URL.createObjectURL(new Blob([arr],{type:'audio/mpeg'}));
+        }
       }
     }
     if(!audioUrl) throw new Error('未取得音頻 URL');
     targetRow.voiceAudio = audioUrl;
     setRowState(targetRow,'voice','done');
-    // 若影片也完成，自動合成
-    if(CFG.composeWebhook && targetRow.videoStatus==='done' && targetRow.videoPreview){
-      synthesizeSceneVideo(targetRow.id);
-    }
+    if(CFG.composeWebhook && targetRow.videoStatus==='done' && targetRow.videoPreview){ synthesizeSceneVideo(targetRow.id); }
   } catch(e){
     setRowState(targetRow,'voice','error', e.message);
   }
@@ -2166,72 +2056,46 @@ function extractSpeakerText(dialog, speaker){
   var lines = dialog.replace(/\\n/g,'\n').split('\n').map(function(l){ return l.trim(); }).filter(Boolean);
   var hasPrefix = lines.some(function(l){ return /^[AaBb][：:]/u.test(l); });
   if(hasPrefix){
-    var myLines = lines.filter(function(l){
-      return new RegExp('^'+speaker+'[：:]','u').test(l);
-    }).map(function(l){
-      return l.replace(/^[AaBb][：:]\s*/u, '').trim();
-    });
+    var myLines = lines.filter(function(l){ return new RegExp('^'+speaker+'[：:]','u').test(l); }).map(function(l){ return l.replace(/^[AaBb][：:]\s*/u, '').trim(); });
     return myLines.join('　');
   }
   return dialog.replace(/^[AaBb][：:]\s*/gmu, '').replace(/\n|\\n/g, '　').trim();
 }
 
-// ── 音效搜尋（Freesound）─────────────────────────────────────────────────────
+// ── 音效生成（ElevenLabs SFX）────────────────────────────────────────────────
 async function generateSfx(id){
   var r = rows.find(function(r){ return r.id===id; });
   if(!r) return;
-  if(!CFG.freesound){ alert('請先在「API 設定」填入 Freesound API Key'); return; }
   var keywords = (r.sfxKeywords || r.keywords || '').trim();
-  if(!keywords){ alert('此鏡次沒有音效關鍵字，請在腳本填入搜尋關鍵字欄位'); return; }
-
+  if(!keywords){ alert('此鏡次沒有音效關鍵字'); return; }
+  if(!CFG.sfxWebhook){ alert('sfxWebhook 未設定'); return; }
   var btn = document.getElementById('sfx-btn-'+id);
   var statusEl = document.getElementById('sfx-status-'+id);
   if(btn) btn.disabled = true;
-  if(statusEl){ statusEl.textContent = '搜尋中...'; statusEl.style.color = 'var(--amber)'; }
-
+  if(statusEl){ statusEl.textContent = '⏳ 生成中...'; statusEl.style.color = 'var(--amber)'; }
   try {
-    var q = encodeURIComponent(keywords);
-    var url = 'https://freesound.org/apiv2/search/text/?query=' + q +
-      '&token=' + CFG.freesound +
-      '&fields=id,name,previews,duration,username,license' +
-      '&filter=duration:[0.5 TO 30]' +
-      '&sort=score&page_size=5';
-
-    var res = await fetch(url);
-    if(!res.ok) throw new Error('HTTP ' + res.status + '（請確認 API Key 是否正確）');
+    var res = await fetch(CFG.sfxWebhook, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: keywords })
+    });
+    if(!res.ok) throw new Error('HTTP ' + res.status);
     var data = await res.json();
-    var hits = data.results || [];
-    if(!hits.length) throw new Error('找不到相關音效，換個關鍵字試試');
-
-    // 取第一個有預覽的結果
-    var hit = null;
-    for(var i=0; i<hits.length; i++){
-      if(hits[i].previews && hits[i].previews['preview-hq-mp3']){
-        hit = hits[i]; break;
-      }
-    }
-    if(!hit) throw new Error('找不到可預覽的音效');
-
-    var previewUrl = hit.previews['preview-hq-mp3'] || hit.previews['preview-lq-mp3'];
-    r.sfxAudio = previewUrl;
-    r.sfxFilename = id + '_sfx_' + hit.id + '.mp3';
-    r.sfxName = hit.name;
-
-    // 更新卡片 UI
+    if(!data.audioBase64) throw new Error(JSON.stringify(data));
+    var bytes = Uint8Array.from(atob(data.audioBase64), function(c){ return c.charCodeAt(0); });
+    var blob = new Blob([bytes], { type: 'audio/mpeg' });
+    var audioUrl = URL.createObjectURL(blob);
+    r.sfxAudio = audioUrl; r.sfxFilename = id + '_sfx.mp3';
     var audioEl = document.getElementById('sfx-audio-'+id);
     var dlEl    = document.getElementById('sfx-dl-'+id);
-    var nameEl  = document.getElementById('sfx-name-'+id);
-    if(audioEl){ audioEl.src = previewUrl; audioEl.style.display = 'block'; }
-    if(dlEl){ dlEl.href = previewUrl; dlEl.download = r.sfxFilename; dlEl.style.display = 'inline-flex'; }
-    if(nameEl) nameEl.textContent = hit.name.substring(0,30);
-    if(statusEl){ statusEl.textContent = '✓ ' + hit.name.substring(0,25); statusEl.style.color = 'var(--green)'; }
-
+    if(audioEl){ audioEl.src = audioUrl; audioEl.style.display = 'block'; }
+    if(dlEl){ dlEl.href = audioUrl; dlEl.download = r.sfxFilename; dlEl.style.display = 'inline-flex'; }
+    if(statusEl){ statusEl.textContent = '✅ 音效已生成'; statusEl.style.color = 'var(--green)'; }
   } catch(e){
     if(statusEl){ statusEl.textContent = '✕ ' + e.message; statusEl.style.color = 'var(--red)'; }
   }
   if(btn) btn.disabled = false;
 }
-
 
 async function reSearchVideo(id){
   var r = rows.find(function(r){ return r.id===id; });
@@ -2239,7 +2103,6 @@ async function reSearchVideo(id){
   var btn = document.getElementById('resrch-btn-'+id);
   if(btn){ btn.disabled=true; btn.textContent='搜尋中...'; }
   await runVideo(r);
-  // 更新素材庫縮圖
   renderAssets();
 }
 
@@ -2247,7 +2110,6 @@ async function runVideo(r){
   setRowState(r,'video','processing');
   try {
     if(r.sceneType==='動畫'){
-      // ── Pixabay 動畫影片 ──
       if(!CFG.pixabay) throw new Error('尚未設定 Pixabay API Key，請前往「API 設定」填入');
       var query = encodeURIComponent(r.keywords || r.dialog.substring(0,30));
       var url = 'https://pixabay.com/api/videos/?key='+CFG.pixabay+'&q='+query+'&video_type=animation&per_page=10&order=popular';
@@ -2255,7 +2117,6 @@ async function runVideo(r){
       var data = await res.json();
       var hits = (data.hits||[]).filter(function(v){ return v.videos; });
       if(!hits.length){
-        // fallback: 不限 video_type
         var url2 = 'https://pixabay.com/api/videos/?key='+CFG.pixabay+'&q='+query+'&per_page=10&order=popular';
         var res2 = await fetch(url2);
         var data2 = await res2.json();
@@ -2263,38 +2124,23 @@ async function runVideo(r){
       }
       if(!hits.length) throw new Error('Pixabay 找不到相關動畫影片');
       var pick = hits[Math.floor(Math.random()*hits.length)];
-      // 優先取 large，其次 medium，最後 small
       var vid = pick.videos.large || pick.videos.medium || pick.videos.small || pick.videos.tiny;
       if(!vid || !vid.url) throw new Error('找不到可用的影片連結');
-      r.videoPreview    = vid.url;
-      r.videoDuration   = pick.duration;
-      r.videoPixabayUrl = pick.pageURL;
-      r.videoAuthor     = pick.user;
+      r.videoPreview = vid.url; r.videoDuration = pick.duration; r.videoPixabayUrl = pick.pageURL; r.videoAuthor = pick.user;
       setRowState(r,'video','done');
-      if(CFG.composeWebhook && r.voiceStatus==='done' && r.voiceAudio){
-        synthesizeSceneVideo(r.id);
-      }
-
+      if(CFG.composeWebhook && r.voiceStatus==='done' && r.voiceAudio){ synthesizeSceneVideo(r.id); }
     } else {
-      // ── 真實影片 → Pexels ──
       if(!CFG.pexels) throw new Error('尚未設定 Pexels API Key');
       var query = encodeURIComponent(r.keywords||r.dialog.substring(0,30));
-      var res = await fetch('https://api.pexels.com/videos/search?query='+query+'&per_page=5&orientation=landscape', {
-        headers:{'Authorization': CFG.pexels}
-      });
+      var res = await fetch('https://api.pexels.com/videos/search?query='+query+'&per_page=5&orientation=landscape', { headers:{'Authorization': CFG.pexels} });
       var data = await res.json();
       var vids = (data.videos||[]).filter(function(v){ return v.video_files&&v.video_files.length; });
       if(!vids.length) throw new Error('找不到相關影片');
       var pick = vids[Math.floor(Math.random()*vids.length)];
       var file = pick.video_files.sort(function(a,b){ return (b.width||0)-(a.width||0); })[0];
-      r.videoPreview      = file.link;
-      r.videoDuration     = pick.duration;
-      r.videoPhotographer = pick.user&&pick.user.name;
-      r.videoPexelsUrl    = pick.url;
+      r.videoPreview = file.link; r.videoDuration = pick.duration; r.videoPhotographer = pick.user&&pick.user.name; r.videoPexelsUrl = pick.url;
       setRowState(r,'video','done');
-      if(CFG.composeWebhook && r.voiceStatus==='done' && r.voiceAudio){
-        synthesizeSceneVideo(r.id);
-      }
+      if(CFG.composeWebhook && r.voiceStatus==='done' && r.voiceAudio){ synthesizeSceneVideo(r.id); }
     }
   } catch(e) {
     r.videoError = e.message;
@@ -2303,25 +2149,21 @@ async function runVideo(r){
 }
 
 // ── 鏡次內嵌對話播放器 ────────────────────────────────────────────────────────
-var miniState = {}; // rowId → { idx, timer, audio, playing }
-
+var miniState = {};
 function miniPlay(rowId){
   var r = rows.find(function(r){ return r.id===rowId; });
   if(!r || !r.voiceLines || !r.voiceLines.length) return;
   if(!miniState[rowId]) miniState[rowId] = {};
   var s = miniState[rowId];
-  s.playing = true;
-  s.idx = 0;
+  s.playing = true; s.idx = 0;
   var btn = document.getElementById('mini-btn-'+rowId);
   if(btn) btn.textContent = '⏸ 播放中';
   miniShowLine(rowId, 0);
 }
-
 function miniStop(rowId){
   var s = miniState[rowId];
   if(!s) return;
-  s.playing = false;
-  clearTimeout(s.timer);
+  s.playing = false; clearTimeout(s.timer);
   if(s.audio){ s.audio.pause(); s.audio = null; }
   miniSetState(rowId, null);
   var btn = document.getElementById('mini-btn-'+rowId);
@@ -2331,28 +2173,16 @@ function miniStop(rowId){
   var pg = document.getElementById('mini-progress-'+rowId);
   if(pg) pg.style.width = '0%';
 }
-
 function miniSetState(rowId, activeSpeaker){
   var va = document.getElementById('mini-va-'+rowId);
   var ia = document.getElementById('mini-ia-'+rowId);
-  if(activeSpeaker === 'A'){
-    if(va){ va.style.display='block'; va.play().catch(function(){}); }
-    if(ia){ ia.style.opacity='0'; }
-  } else {
-    if(va){ va.pause(); va.style.display='none'; }
-    if(ia){ ia.style.opacity='1'; }
-  }
+  if(activeSpeaker === 'A'){ if(va){ va.style.display='block'; va.play().catch(function(){}); } if(ia){ ia.style.opacity='0'; } }
+  else { if(va){ va.pause(); va.style.display='none'; } if(ia){ ia.style.opacity='1'; } }
   var vb = document.getElementById('mini-vb-'+rowId);
   var ib = document.getElementById('mini-ib-'+rowId);
-  if(activeSpeaker === 'B'){
-    if(vb){ vb.style.display='block'; vb.play().catch(function(){}); }
-    if(ib){ ib.style.opacity='0'; }
-  } else {
-    if(vb){ vb.pause(); vb.style.display='none'; }
-    if(ib){ ib.style.opacity='1'; }
-  }
+  if(activeSpeaker === 'B'){ if(vb){ vb.style.display='block'; vb.play().catch(function(){}); } if(ib){ ib.style.opacity='0'; } }
+  else { if(vb){ vb.pause(); vb.style.display='none'; } if(ib){ ib.style.opacity='1'; } }
 }
-
 function miniShowLine(rowId, idx){
   var r = rows.find(function(r){ return r.id===rowId; });
   var s = miniState[rowId];
@@ -2377,7 +2207,6 @@ function miniShowLine(rowId, idx){
     s.timer = setTimeout(function(){ if(s.playing) miniShowLine(rowId, idx+1); }, dur);
   }
 }
-
 function miniFinish(rowId){
   var s = miniState[rowId];
   if(s) s.playing = false;
@@ -2389,11 +2218,42 @@ function miniFinish(rowId){
 }
 
 // ── 數字人播放器 ──────────────────────────────────────────────────────────────
-var PLAYER_VIDEOS = { a:{talk:null,idle:null}, b:{talk:null,idle:null} };
-var playerQueue   = [];
-var playerIdx     = -1;
-var playerTimer   = null;
-var playerPlaying = false;
+var PLAYER_VIDEOS = { a:{talk:null,idle:null,pray:null}, b:{talk:null,idle:null,pray:null} };
+var playerQueue = [], playerIdx = -1, playerTimer = null, playerPlaying = false;
+
+async function cloneVoice(role, input){
+  var file = input.files[0]; if(!file) return;
+  var btnId = 'clone-btn-' + role.toLowerCase();
+  var inputId = 'ab-fish-voice-' + role.toLowerCase();
+  var btn = document.getElementById(btnId);
+  var originalText = btn ? btn.textContent : '';
+  if(btn) btn.textContent = '⏳ 克隆中…';
+  try {
+    var ab = await file.arrayBuffer();
+    var b64 = btoa(String.fromCharCode(...new Uint8Array(ab)));
+    var res = await fetch(CFG.cloneWebhook, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: role + '_' + Date.now(), audioBase64: b64 })
+    });
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    var data = await res.json();
+    var voiceId = data.voice_id;
+    if(!voiceId) throw new Error(JSON.stringify(data));
+    if(role === 'A') CFG.fishVoiceA = voiceId;
+    else CFG.fishVoiceB = voiceId;
+    var el = document.getElementById(inputId);
+    if(el) el.value = voiceId;
+    var sel = document.getElementById('s-fish-voice-' + role.toLowerCase());
+    if(sel) sel.value = voiceId;
+    if(btn) btn.textContent = '✅ 克隆成功！';
+    setTimeout(function(){ if(btn) btn.textContent = originalText; }, 3000);
+  } catch(e) {
+    if(btn) btn.textContent = originalText;
+    alert('克隆失敗：' + e.message);
+  }
+  input.value = '';
+}
 
 function loadPlayerVideo(role, type, input){
   var file = input.files[0]; if(!file) return;
@@ -2406,7 +2266,6 @@ function loadPlayerVideo(role, type, input){
   if(lbl) lbl.style.display='none';
   if(box) box.classList.add('has-video');
 }
-
 function loadPlayerImage(role, type, input){
   var file = input.files[0]; if(!file) return;
   var url = URL.createObjectURL(file);
@@ -2423,15 +2282,13 @@ function playerSetState(role, state){
   var videoEl  = document.getElementById('player-'+role);
   var parentEl = videoEl ? videoEl.parentElement : null;
   if(!videoEl||!parentEl) return;
-
   if(state==='talk' && PLAYER_VIDEOS[role].talk){
     parentEl.style.backgroundImage = 'none';
     videoEl.style.display = 'block';
     if(videoEl.getAttribute('data-src') !== PLAYER_VIDEOS[role].talk){
       videoEl.src = PLAYER_VIDEOS[role].talk;
       videoEl.setAttribute('data-src', PLAYER_VIDEOS[role].talk);
-      videoEl.loop = true;
-      videoEl.play().catch(function(){});
+      videoEl.loop = true; videoEl.play().catch(function(){});
     }
   } else {
     videoEl.pause(); videoEl.src=''; videoEl.removeAttribute('data-src');
@@ -2452,12 +2309,10 @@ function playerBuildQueue(){
   rows.forEach(function(r){
     if(!r.dialog.trim()) return;
     if(r.voiceLines && r.voiceLines.length){
-      // 對話模式：用逐句音頻
       r.voiceLines.forEach(function(line){
         playerQueue.push({ speaker:line.speaker, dialog:line.dialog, audioUrl:line.audioUrl||null });
       });
     } else {
-      // 非對話模式或舊格式
       var dialog = r.dialog.replace(/\\n/g,'\n');
       var lines = dialog.split('\n').map(function(l){ return l.trim(); }).filter(Boolean);
       lines.forEach(function(line){
@@ -2483,15 +2338,12 @@ function playerShowLine(idx){
   if(ci) ci.textContent = '第 '+(idx+1)+' 句';
   var pg = document.getElementById('player-progress');
   if(pg) pg.style.width = ((idx+1)/playerQueue.length*100)+'%';
-
   playerSetState('a', item.speaker==='A'?'talk':'idle');
   playerSetState('b', item.speaker==='B'?'talk':'idle');
-
   var audio = document.getElementById('player-audio');
   if(audio){
     if(item.audioUrl){
-      audio.src = item.audioUrl;
-      audio.play().catch(function(){});
+      audio.src = item.audioUrl; audio.play().catch(function(){});
       audio.onended = function(){ if(playerPlaying) playerNext(); };
     } else {
       var dur = Math.max(1500, item.dialog.length*300);
@@ -2500,20 +2352,16 @@ function playerShowLine(idx){
     }
   }
 }
-
 function playerPlay(){
   if(!playerBuildQueue()){ alert('沒有可播放的台詞，請先在腳本工作台完成配音。'); return; }
   playerPlaying = true;
   var btn = document.getElementById('btn-player-play');
   if(btn) btn.textContent = '⏸ 播放中...';
   playerSetState('a','idle'); playerSetState('b','idle');
-  playerIdx = 0;
-  playerShowLine(playerIdx);
+  playerIdx = 0; playerShowLine(playerIdx);
 }
-
 function playerStop(){
-  playerPlaying = false;
-  clearTimeout(playerTimer);
+  playerPlaying = false; clearTimeout(playerTimer);
   var audio = document.getElementById('player-audio');
   if(audio) audio.pause();
   var btn = document.getElementById('btn-player-play');
@@ -2524,7 +2372,6 @@ function playerStop(){
   var pg = document.getElementById('player-progress');
   if(pg) pg.style.width = '0%';
 }
-
 function playerNext(){
   clearTimeout(playerTimer);
   var audio = document.getElementById('player-audio');
@@ -2538,7 +2385,6 @@ function playerNext(){
   }
   playerShowLine(playerIdx);
 }
-
 function playerPrev(){
   clearTimeout(playerTimer);
   var audio = document.getElementById('player-audio');
@@ -2548,10 +2394,27 @@ function playerPrev(){
 }
 
 // ── INIT ─────────────────────────────────────────────────────────────────────
+// 💾 從 localStorage 讀回上次儲存的設定
+(function loadSavedSettings(){
+  try {
+    var ls = localStorage;
+    var load = function(key, prop){
+      var v = ls.getItem(key);
+      if(v !== null && v !== '') CFG[prop] = v;
+    };
+    load('cfg_fishWebhook',         'fishWebhook');
+    load('cfg_composeWebhook',      'composeWebhook');
+    load('cfg_fishVoiceA',          'fishVoiceA');
+    load('cfg_fishVoiceB',          'fishVoiceB');
+    load('cfg_pexels',              'pexels');
+    load('cfg_pixabay',             'pixabay');
+    load('cfg_freesound',           'freesound');
+    load('cfg_uploadAssetsWebhook', 'uploadAssetsWebhook');
+  } catch(e){}
+})();
 updateLeds();
 updateStats();
 render();
-
 </script>
 </body>
 </html>

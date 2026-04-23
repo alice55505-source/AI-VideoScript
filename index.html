@@ -1633,23 +1633,25 @@ async function composeShotLocally(rowId){
       await new Promise(function(res){ var fn=function(){ bgVideo.removeEventListener('seeked',fn); res(); }; bgVideo.addEventListener('seeked',fn); });
     } else {
       var PV = PLAYER_VIDEOS;
+      var isPrayMode = r.sceneType === '禱告';
       for(var role of ['a','b']){
         var key = role.toUpperCase();
         charEls[key] = {};
-        for(var type of ['talk','idle']){
-          if(!PV[role][type]) continue;
-          if(type==='idle'){
-            var img = new Image();
-            img.crossOrigin = 'anonymous'; img.src = PV[role][type];
-            await new Promise(function(res){ img.onload=res; img.onerror=res; });
-            charEls[key][type] = img;
-          } else {
-            var vel = document.createElement('video');
-            vel.crossOrigin='anonymous'; vel.muted=true; vel.loop=true;
-            vel.src = PV[role][type];
-            await new Promise(function(res){ vel.onloadedmetadata=res; vel.onerror=res; vel.load(); });
-            charEls[key][type] = vel;
-          }
+        // 禱告模式用 pray 影片，對話模式用 talk + idle
+        var videoSrc = isPrayMode ? PV[role].pray : PV[role].talk;
+        var idleSrc  = isPrayMode ? null : PV[role].idle;
+        if(videoSrc){
+          var vel = document.createElement('video');
+          vel.crossOrigin='anonymous'; vel.muted=true; vel.loop=true;
+          vel.src = videoSrc;
+          await new Promise(function(res){ vel.onloadedmetadata=res; vel.onerror=res; vel.load(); });
+          charEls[key].talk = vel;  // 統一存成 talk，讓後續繪圖邏輯共用
+        }
+        if(idleSrc){
+          var img = new Image();
+          img.crossOrigin = 'anonymous'; img.src = idleSrc;
+          await new Promise(function(res){ img.onload=res; img.onerror=res; });
+          charEls[key].idle = img;
         }
       }
     }

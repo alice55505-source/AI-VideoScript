@@ -1976,7 +1976,7 @@ async function runDialogVoices(r){
       var voiceId = s.speaker==='B' ? CFG.fishVoiceB : CFG.fishVoiceA;
       if(!voiceId){ r.voiceLines.push({ speaker:s.speaker, dialog:s.dialog, audioUrl:null, error:'未設定 Voice ID' }); continue; }
       try {
-        var res = await fetch(CFG.fishWebhook, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ id:r.id+'_'+i, speaker:s.speaker, text:s.dialog, reference_id:voiceId, speed:0.8 }) });
+        var res = await fetch(CFG.fishWebhook, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ id:r.id+'_'+i, speaker:s.speaker, text:s.dialog, reference_id:voiceId, speed:0.64 }) });
         if(!res.ok) throw new Error('HTTP '+res.status);
         var ct = res.headers.get('content-type')||'';
         var audioUrl;
@@ -2023,7 +2023,7 @@ async function runVoice(r, targetRow, role){
     if(!voiceId) throw new Error('請先在「AB 設定」上傳音檔克隆 '+role+' 角色的聲音');
     var text = extractSpeakerText(r.dialog, role);
     if(!text) throw new Error('找不到角色 '+role+' 的台詞');
-    var res = await fetch(CFG.fishWebhook, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ id:r.id, speaker:role, text:text, reference_id:voiceId, speed:0.8 }) });
+    var res = await fetch(CFG.fishWebhook, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ id:r.id, speaker:role, text:text, reference_id:voiceId, speed:0.64 }) });
     if(!res.ok) throw new Error('Fish Audio HTTP '+res.status);
     var ct = res.headers.get('content-type') || '';
     var audioUrl;

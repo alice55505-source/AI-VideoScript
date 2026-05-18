@@ -643,6 +643,7 @@ function loadCSV(input){
     parseFeishuCSV(text);
   };
   reader.readAsText(file);
+  input.value = '';
 }
 
 function parseFeishuCSV(text){
@@ -1227,8 +1228,16 @@ function renderAssets(){
       '<span style="font-size:9px;color:var(--muted);background:rgba(255,255,255,0.06);padding:1px 6px;border-radius:4px">'+r.sceneType+'</span>'+
       '</div>';
 
-    var preview = r.keywords || r.dialog.substring(0,50);
-    html += '<div style="font-size:10px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:10px" title="'+escAttr(r.dialog)+'">'+escHtml(preview)+'</div>';
+    if((r.sceneType==='對話模式'||r.sceneType==='禱告') && r.voiceLines && r.voiceLines.length){
+      html += '<div style="font-size:10px;max-height:80px;overflow-y:auto;margin-bottom:10px;display:flex;flex-direction:column;gap:3px;padding:6px 8px;background:rgba(255,255,255,0.03);border-radius:6px;border:1px solid rgba(255,255,255,0.06)">';
+      r.voiceLines.forEach(function(line){
+        var spkColor = line.speaker==='A' ? 'var(--cyan)' : 'var(--violet)';
+        html += '<div style="line-height:1.5"><span style="color:'+spkColor+';font-weight:700;font-family:var(--font-mono)">'+line.speaker+'：</span><span style="color:rgba(255,255,255,0.65)">'+escHtml(line.dialog)+'</span></div>';
+      });
+      html += '</div>';
+    } else {
+      html += '<div style="font-size:10px;color:rgba(255,255,255,0.55);max-height:60px;overflow-y:auto;margin-bottom:10px;line-height:1.6;padding:6px 8px;background:rgba(255,255,255,0.03);border-radius:6px;border:1px solid rgba(255,255,255,0.06)">'+escHtml(r.dialog)+'</div>';
+    }
 
     html += '<div style="display:flex;flex-wrap:wrap;gap:6px">';
 
@@ -1265,6 +1274,13 @@ function renderAssets(){
           'background:rgba(34,211,238,0.18);border:1px solid rgba(34,211,238,0.5);color:var(--cyan);'+
           'font-size:11px;font-weight:700;text-decoration:none;width:100%;justify-content:center">'+
           '⬇ 下載合成影片（MP4）</a>';
+        var cfmStyle = r.confirmed
+          ? 'background:rgba(34,211,238,0.15);border:1px solid rgba(34,211,238,0.5);color:var(--cyan);'
+          : 'background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.15);color:var(--muted);';
+        html += '<button onclick="toggleConfirm(\''+r.id+'\')" '+
+          'style="display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:6px;'+
+          cfmStyle+'font-size:11px;font-weight:700;cursor:pointer;width:100%;justify-content:center;margin-top:4px">'+
+          (r.confirmed ? '✅ 已加入串接' : '☐ 加入串接')+'</button>';
       }
       html += '</div>';
       html += '<div style="display:flex;flex-wrap:wrap;gap:6px">';
@@ -1296,6 +1312,13 @@ function renderAssets(){
           'background:rgba(167,139,250,0.18);border:1px solid rgba(167,139,250,0.5);color:var(--violet);'+
           'font-size:11px;font-weight:700;text-decoration:none;width:100%;justify-content:center">'+
           '⬇ 下載合成影片（MP4）</a>';
+        var cfmStyle2 = r.confirmed
+          ? 'background:rgba(167,139,250,0.15);border:1px solid rgba(167,139,250,0.5);color:var(--violet);'
+          : 'background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.15);color:var(--muted);';
+        html += '<button onclick="toggleConfirm(\''+r.id+'\')" '+
+          'style="display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:6px;'+
+          cfmStyle2+'font-size:11px;font-weight:700;cursor:pointer;width:100%;justify-content:center;margin-top:4px">'+
+          (r.confirmed ? '✅ 已加入串接' : '☐ 加入串接')+'</button>';
       }
       html += '</div>';
       html += '<div style="display:flex;flex-wrap:wrap;gap:6px">';
@@ -1340,6 +1363,18 @@ function renderAssets(){
     html += '</div></div>';
     return html;
   }).join('');
+  updateConcatBtnText();
+}
+
+function updateConcatBtnText(){
+  var n = rows.filter(function(r){ return r.confirmed && r.localSynthUrl; }).length;
+  var btn = document.getElementById('btn-concat-all');
+  if(btn) btn.textContent = n ? '🎞 串接全片（'+n+' 鏡次）' : '🎞 串接全片';
+}
+
+function toggleConfirm(rowId){
+  var r = rows.find(function(r){ return r.id===rowId; });
+  if(r){ r.confirmed = !r.confirmed; renderAssets(); }
 }
 
 // ── 真實影片/動畫：呼叫 n8n 合成影片+配音 ───────────────────────────────────
@@ -1738,7 +1773,8 @@ function sleep(ms){ return new Promise(function(resolve){ setTimeout(resolve,ms)
 async function runRow(id){
   var r = rows.find(function(r){ return r.id===id; });
   if(!r) return;
-  // ✅ 執行前先檢查必要設定，給出明確提示
+  var btn = document.getElementById('runbtn-'+id);
+  if(btn && btn.disabled) return;
   if(!CFG.fishWebhook){
     alert('❌ 尚未設定 Fish Audio Webhook URL\n\n請先到「API 設定」頁填入 n8n Webhook URL 並按「儲存設定」');
     return;
@@ -1747,12 +1783,16 @@ async function runRow(id){
     alert('❌ 尚未設定 Voice ID\n\n請到 fish.audio 選好聲音，複製 reference_id 後到「AB 設定」或「API 設定」填入');
     return;
   }
-  if(r.sceneType === '對話模式' || r.sceneType === '禱告'){
-    runDialogVoices(r);
-  } else {
-    runVoice(r);
-    await sleep(300);
-    runVideo(r);
+  if(btn) btn.disabled = true;
+  try {
+    if(r.sceneType === '對話模式' || r.sceneType === '禱告'){
+      await runDialogVoices(r);
+    } else {
+      await Promise.all([runVoice(r), sleep(300).then(function(){ return runVideo(r); })]);
+    }
+  } finally {
+    var b = document.getElementById('runbtn-'+id);
+    if(b) b.disabled = (r.videoStatus==='processing'||r.voiceStatus==='processing');
   }
 }
 
@@ -1838,8 +1878,8 @@ async function runAll(){
 
 async function concatAllShots(){
   if(!CFG.concatWebhook){ alert('❌ 尚未設定 Concat Webhook URL'); return; }
-  const ready = rows.filter(function(r){ return r.synthVideoUrl; });
-  if(!ready.length){ alert('⚠️ 還沒有已合成的鏡次！\n請先對每個鏡次執行「▶ 執行」並合成影片。'); return; }
+  const ready = rows.filter(function(r){ return r.confirmed && r.localSynthUrl; });
+  if(!ready.length){ alert('⚠️ 尚無確認加入串接的鏡次！\n請在素材庫合成影片後，點擊「加入串接」確認。'); return; }
   const btn = document.getElementById('btn-concat-all');
   btn.disabled = true;
   btn.textContent = '⏳ 串接中…';
@@ -1863,7 +1903,7 @@ async function concatAllShots(){
     var shots = [];
     for(var i=0; i<ready.length; i++){
       btn.textContent = '⏳ 準備資料（' + (i+1) + '/' + ready.length + '）…';
-      var b64 = await blobToBase64(ready[i].synthVideoUrl);
+      var b64 = await blobToBase64(ready[i].localSynthUrl);
       shots.push({ id: ready[i].id, videoBase64: b64 });
     }
     btn.textContent = '⏳ 傳送到 n8n 串接中…';
@@ -1886,11 +1926,11 @@ async function concatAllShots(){
     a.download = 'full_video.mp4';
     a.click();
     var dur = data.duration || (Array.isArray(data) && data[0].duration) || '?';
-    btn.textContent = '✅ 完成（' + (data.segments || ready.length) + ' 鏡次，' + dur + 's）';
-    setTimeout(function(){ btn.textContent = '🎞 串接全片'; btn.disabled = false; }, 4000);
+    btn.textContent = '✅ 完成（' + ready.length + ' 鏡次）';
+    setTimeout(function(){ updateConcatBtnText(); btn.disabled = false; }, 4000);
   } catch(e){
     alert('❌ 串接失敗：' + e.message);
-    btn.textContent = '🎞 串接全片';
+    updateConcatBtnText();
     btn.disabled = false;
   }
 }

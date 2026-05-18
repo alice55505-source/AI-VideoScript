@@ -507,18 +507,6 @@ textarea.cell-input{
     </div>
   </div>
 
-  <!-- 影片合成 -->
-  <div class="setting-section">
-    <div class="setting-title">🎬 影片合成（n8n compose-dialog）</div>
-    <div class="setting-field">
-      <div class="setting-label">Compose Webhook URL</div>
-      <input class="setting-input" id="s-compose-webhook" type="text"
-        value="https://n8n.alice55505.dpdns.org/webhook/compose-dialog"
-        placeholder="https://n8n.xxx.dpdns.org/webhook/compose-dialog">
-      <div class="setting-hint">對話模式鏡次 → 素材庫「合成完整影片」按鈕會呼叫此 webhook</div>
-    </div>
-  </div>
-
   <div class="setting-section">
     <div class="setting-field">
       <div class="setting-label">n8n Webhook URL（Fish Audio TTS）</div>
@@ -1244,29 +1232,6 @@ function renderAssets(){
 
     html += '<div style="display:flex;flex-wrap:wrap;gap:6px">';
 
-    if(r.sceneType !== '對話模式' && hasVideo && hasAudio){
-      html += '<button onclick="synthesizeSceneVideo(\''+r.id+'\')" id="synth-btn-'+r.id+'" '+
-        'style="display:inline-flex;align-items:center;gap:5px;padding:5px 14px;border-radius:6px;'+
-        'border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);color:var(--muted);'+
-        'font-size:10px;font-weight:600;cursor:pointer;width:100%;justify-content:center;margin-bottom:4px">'+
-        '🔄 重新合成（n8n）</button>';
-      html += '<div id="synth-status-'+r.id+'" style="font-size:10px;color:var(--muted);margin-bottom:4px;min-height:14px;width:100%"></div>';
-      if(r.synthVideoUrl){
-        html += '<a href="'+r.synthVideoUrl+'" download="'+r.id+'_synth.mp4" '+
-          'style="display:inline-flex;align-items:center;gap:5px;padding:5px 14px;border-radius:6px;'+
-          'background:rgba(34,211,238,0.12);border:1px solid rgba(34,211,238,0.4);color:var(--cyan);'+
-          'font-size:10px;font-weight:700;text-decoration:none;width:100%;justify-content:center;margin-bottom:4px">'+
-          '⬇ 下載合成影片（MP4）</a>';
-      }
-      if(r.synthSrtUrl){
-        html += '<a href="'+r.synthSrtUrl+'" download="'+r.id+'.srt" '+
-          'style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:6px;'+
-          'background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:var(--muted);'+
-          'font-size:10px;font-weight:600;text-decoration:none;margin-bottom:4px">'+
-          '⬇ 字幕（SRT）</a>';
-      }
-    }
-
     if(hasVideo){
       html += '<a href="'+r.videoPreview+'" download="'+r.id+'.mp4" target="_blank" '+
         'style="display:inline-flex;align-items:center;gap:4px;padding:5px 12px;border-radius:6px;'+
@@ -1288,7 +1253,6 @@ function renderAssets(){
     if(r.sceneType !== '對話模式' && hasVideo && hasAudio){
       html += '</div>';
       html += '<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.06)">';
-      html += '<div style="font-size:9px;font-weight:700;color:rgba(34,211,238,0.5);letter-spacing:1.2px;text-transform:uppercase;margin-bottom:6px;font-family:var(--font-mono)">本機合成</div>';
       html += '<button onclick="composeShotLocally(\''+r.id+'\')" id="local-synth-btn-'+r.id+'" '+
         'style="display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:6px;'+
         'border:1px solid rgba(34,211,238,0.35);background:rgba(34,211,238,0.08);color:var(--cyan);'+
@@ -1307,14 +1271,6 @@ function renderAssets(){
     }
 
     if((r.sceneType==='對話模式' || r.sceneType==='禱告') && hasLines){
-      var readyLines = r.voiceLines.filter(function(l){return l.audioUrl;}).length;
-      var totalLines = r.voiceLines.length;
-      html += '<button onclick="synthesizeDialogVideo(\''+r.id+'\')" id="synth-btn-'+r.id+'" '+
-        'style="display:inline-flex;align-items:center;gap:5px;padding:5px 14px;border-radius:6px;'+
-        'border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);color:var(--muted);'+
-        'font-size:10px;font-weight:600;cursor:pointer;width:100%;justify-content:center;margin-bottom:6px">'+
-        '🔄 重新合成</button>';
-      html += '<div id="synth-status-'+r.id+'" style="font-size:10px;color:var(--muted);margin-bottom:6px;min-height:14px"></div>';
       r.voiceLines.forEach(function(line, i){
         if(!line.audioUrl) return;
         var spkColor = line.speaker==='A' ? 'var(--cyan)' : 'var(--violet)';
@@ -1327,7 +1283,6 @@ function renderAssets(){
 
       html += '</div>';
       html += '<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.06)">';
-      html += '<div style="font-size:9px;font-weight:700;color:rgba(167,139,250,0.6);letter-spacing:1.2px;text-transform:uppercase;margin-bottom:6px;font-family:var(--font-mono)">本機合成</div>';
       var hasLocalAudio = r.voiceLines.some(function(l){ return l.audioUrl; });
       html += '<button onclick="composeShotLocally(\''+r.id+'\')" id="local-synth-btn-'+r.id+'" '+(hasLocalAudio?'':'disabled ')+
         'style="display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:6px;'+
@@ -1341,20 +1296,6 @@ function renderAssets(){
           'background:rgba(167,139,250,0.18);border:1px solid rgba(167,139,250,0.5);color:var(--violet);'+
           'font-size:11px;font-weight:700;text-decoration:none;width:100%;justify-content:center">'+
           '⬇ 下載合成影片（MP4）</a>';
-      }
-      if(r.synthVideoUrl){
-        html += '<a href="'+r.synthVideoUrl+'" download="'+r.id+'_synth.mp4" '+
-          'style="display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:6px;'+
-          'background:rgba(34,211,238,0.12);border:1px solid rgba(34,211,238,0.4);color:var(--cyan);'+
-          'font-size:11px;font-weight:700;text-decoration:none;width:100%;justify-content:center;margin-top:4px">'+
-          '⬇ 下載合成影片（MP4，n8n）</a>';
-      }
-      if(r.synthSrtUrl){
-        html += '<a href="'+r.synthSrtUrl+'" download="'+r.id+'.srt" '+
-          'style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:6px;'+
-          'background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:var(--muted);'+
-          'font-size:10px;font-weight:600;text-decoration:none;margin-top:4px">'+
-          '⬇ 字幕（SRT）</a>';
       }
       html += '</div>';
       html += '<div style="display:flex;flex-wrap:wrap;gap:6px">';
@@ -2001,11 +1942,8 @@ async function runDialogVoices(r){
     }
     r.voiceAudio = (r.voiceLines.find(function(l){return l.audioUrl;})||{}).audioUrl || null;
     setRowState(r,'voice','done');
-    if(CFG.composeWebhook){ synthesizeDialogVideo(r.id); }
-    else {
-      var cell = document.getElementById('status-'+r.id);
-      if(cell) cell.innerHTML += '<br><span onclick="switchTab(\'assets\')" style="font-size:9px;color:var(--cyan);cursor:pointer;text-decoration:underline">→ 素材庫合成</span>';
-    }
+    var cell = document.getElementById('status-'+r.id);
+    if(cell) cell.innerHTML += '<br><span onclick="switchTab(\'assets\')" style="font-size:9px;color:var(--cyan);cursor:pointer;text-decoration:underline">→ 素材庫合成</span>';
   } catch(e){
     r.voiceError = e.message;
     setRowState(r,'voice','error');
@@ -2048,7 +1986,6 @@ async function runVoice(r, targetRow, role){
     if(!audioUrl) throw new Error('未取得音頻 URL');
     targetRow.voiceAudio = audioUrl;
     setRowState(targetRow,'voice','done');
-    if(CFG.composeWebhook && targetRow.videoStatus==='done' && targetRow.videoPreview){ synthesizeSceneVideo(targetRow.id); }
   } catch(e){
     setRowState(targetRow,'voice','error', e.message);
   }
@@ -2130,7 +2067,6 @@ async function runVideo(r){
       if(!vid || !vid.url) throw new Error('找不到可用的影片連結');
       r.videoPreview = vid.url; r.videoDuration = pick.duration; r.videoPixabayUrl = pick.pageURL; r.videoAuthor = pick.user;
       setRowState(r,'video','done');
-      if(CFG.composeWebhook && r.voiceStatus==='done' && r.voiceAudio){ synthesizeSceneVideo(r.id); }
     } else {
       if(!CFG.pexels) throw new Error('尚未設定 Pexels API Key');
       var query = encodeURIComponent(r.keywords||r.dialog.substring(0,30));
@@ -2142,7 +2078,6 @@ async function runVideo(r){
       var file = pick.video_files.sort(function(a,b){ return (b.width||0)-(a.width||0); })[0];
       r.videoPreview = file.link; r.videoDuration = pick.duration; r.videoPhotographer = pick.user&&pick.user.name; r.videoPexelsUrl = pick.url;
       setRowState(r,'video','done');
-      if(CFG.composeWebhook && r.voiceStatus==='done' && r.voiceAudio){ synthesizeSceneVideo(r.id); }
     }
   } catch(e) {
     r.videoError = e.message;

@@ -1090,13 +1090,7 @@ function renderPreview(r){
     } else {
       if(r.voiceAudio){
         html += '<div style="font-size:10px;color:var(--muted);margin-bottom:4px">🎙 配音音頻</div>'+
-          '<audio controls src="'+r.voiceAudio+'" style="width:100%"></audio>'+
-          '<div style="margin-top:6px">'+
-          '<a href="'+r.voiceAudio+'" download="'+(r.voiceFilename||r.id+'.mp3')+'" '+
-          'style="display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:5px;'+
-          'background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.3);color:var(--violet);'+
-          'font-size:11px;font-weight:600;text-decoration:none;cursor:pointer">⬇ 下載音頻</a>'+
-          '</div>';
+          '<audio controls src="'+r.voiceAudio+'" style="width:100%"></audio>';
       }
     }
     html += '</div>';

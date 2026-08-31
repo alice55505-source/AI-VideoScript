@@ -480,50 +480,6 @@ textarea.cell-input{
     <div id="upload-assets-status" style="font-size:11px;color:var(--muted);margin-top:8px"></div>
   </div>
 
-  <!-- 播放器 -->
-  <div class="setting-section" style="margin-top:20px">
-    <div class="setting-title">▶ 對話播放器</div>
-
-    <!-- 同框畫面 -->
-    <div style="display:flex;gap:8px;margin-top:14px;background:#0a0a0f;border-radius:12px;padding:12px;border:1px solid var(--border)">
-      <div style="flex:1;position:relative;border-radius:8px;overflow:hidden;background:#111;aspect-ratio:16/9">
-        <video id="player-a" style="width:100%;height:100%;object-fit:cover" loop muted playsinline></video>
-        <div style="position:absolute;bottom:6px;left:8px;font-size:10px;font-weight:700;color:var(--cyan);font-family:var(--font-mono);background:rgba(0,0,0,0.6);padding:2px 6px;border-radius:4px">A</div>
-      </div>
-      <div style="flex:1;position:relative;border-radius:8px;overflow:hidden;background:#111;aspect-ratio:16/9">
-        <video id="player-b" style="width:100%;height:100%;object-fit:cover" loop muted playsinline></video>
-        <div style="position:absolute;bottom:6px;right:8px;font-size:10px;font-weight:700;color:var(--violet);font-family:var(--font-mono);background:rgba(0,0,0,0.6);padding:2px 6px;border-radius:4px">B</div>
-      </div>
-    </div>
-
-    <!-- 音頻 -->
-    <audio id="player-audio" style="display:none"></audio>
-
-    <!-- 台詞進度 -->
-    <div id="player-dialog-display" style="margin-top:10px;min-height:48px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:13px;color:var(--text);line-height:1.6">
-      <span style="color:var(--muted);font-size:11px">等待播放...</span>
-    </div>
-
-    <!-- 進度條 -->
-    <div style="margin-top:8px;background:rgba(255,255,255,0.05);border-radius:4px;height:4px;overflow:hidden">
-      <div id="player-progress" style="height:100%;background:linear-gradient(90deg,var(--cyan),var(--violet));width:0%;transition:width 0.3s ease;border-radius:4px"></div>
-    </div>
-    <div style="display:flex;justify-content:space-between;margin-top:4px">
-      <span id="player-current-idx" style="font-size:10px;color:var(--muted)">—</span>
-      <span id="player-total" style="font-size:10px;color:var(--muted)">共 0 句</span>
-    </div>
-
-    <!-- 控制按鈕 -->
-    <div style="display:flex;gap:10px;margin-top:14px;align-items:center">
-      <button class="btn btn-cyan" onclick="playerPlay()" id="btn-player-play" style="flex:1">▶ 開始播放</button>
-      <button class="btn btn-ghost" onclick="playerStop()" style="padding:10px 18px">■ 停止</button>
-      <button class="btn btn-ghost" onclick="playerPrev()" style="padding:10px 14px">◀</button>
-      <button class="btn btn-ghost" onclick="playerNext()" style="padding:10px 14px">▶</button>
-    </div>
-    <div style="margin-top:8px;font-size:11px;color:var(--muted)">
-      ⚡ 從腳本工作台的配音結果自動載入 · 需先完成配音步驟
-    </div>
-  </div>
 </div>
 </div>
 </div>
@@ -654,7 +610,6 @@ function switchTab(t){
   var idx = tabs.indexOf(t);
   if(idx>=0) document.querySelectorAll('.nav-tab')[idx].classList.add('active');
   if(t==='assets') renderAssets();
-  if(t==='player') playerBuildQueue();
   // ✅ 切換到 API 設定頁時，同步目前 CFG 值到欄位
   if(t==='settings') syncSettingsFields();
 }
@@ -2216,7 +2171,6 @@ function miniFinish(rowId){
 
 // ── 數字人播放器 ──────────────────────────────────────────────────────────────
 var PLAYER_VIDEOS = { a:{talk:null,idle:null,pray:null}, b:{talk:null,idle:null,pray:null} };
-var playerQueue = [], playerIdx = -1, playerTimer = null, playerPlaying = false;
 
 async function cloneVoice(role, input){
   var file = input.files[0]; if(!file) return;
@@ -2273,121 +2227,6 @@ function loadPlayerImage(role, type, input){
   if(prev){ prev.src=url; prev.style.display='block'; }
   if(lbl) lbl.style.display='none';
   if(box) box.classList.add('has-video');
-}
-
-function playerSetState(role, state){
-  var videoEl  = document.getElementById('player-'+role);
-  var parentEl = videoEl ? videoEl.parentElement : null;
-  if(!videoEl||!parentEl) return;
-  if(state==='talk' && PLAYER_VIDEOS[role].talk){
-    parentEl.style.backgroundImage = 'none';
-    videoEl.style.display = 'block';
-    if(videoEl.getAttribute('data-src') !== PLAYER_VIDEOS[role].talk){
-      videoEl.src = PLAYER_VIDEOS[role].talk;
-      videoEl.setAttribute('data-src', PLAYER_VIDEOS[role].talk);
-      videoEl.loop = true; videoEl.play().catch(function(){});
-    }
-  } else {
-    videoEl.pause(); videoEl.src=''; videoEl.removeAttribute('data-src');
-    videoEl.style.display = 'none';
-    if(PLAYER_VIDEOS[role].idle){
-      parentEl.style.backgroundImage = 'url('+PLAYER_VIDEOS[role].idle+')';
-      parentEl.style.backgroundSize = 'cover';
-      parentEl.style.backgroundPosition = 'center';
-    } else {
-      parentEl.style.backgroundImage = 'none';
-      videoEl.style.display = 'block';
-    }
-  }
-}
-
-function playerBuildQueue(){
-  playerQueue = [];
-  rows.forEach(function(r){
-    if(!r.dialog.trim()) return;
-    if(r.voiceLines && r.voiceLines.length){
-      r.voiceLines.forEach(function(line){
-        playerQueue.push({ speaker:line.speaker, dialog:line.dialog, audioUrl:line.audioUrl||null });
-      });
-    } else {
-      var dialog = r.dialog.replace(/\\n/g,'\n');
-      var lines = dialog.split('\n').map(function(l){ return l.trim(); }).filter(Boolean);
-      lines.forEach(function(line){
-        var mA = line.match(/^A[（(]?[^）)：:]*[）)]?[：:]\s*(.*)/);
-        var mB = line.match(/^B[（(]?[^）)：:]*[）)]?[：:]\s*(.*)/);
-        if(mA) playerQueue.push({ speaker:'A', dialog:mA[1], audioUrl: r.voiceAudioA||r.voiceAudio||null });
-        else if(mB) playerQueue.push({ speaker:'B', dialog:mB[1], audioUrl: r.voiceAudioB||r.voiceAudio||null });
-      });
-    }
-  });
-  var tot = document.getElementById('player-total');
-  if(tot) tot.textContent = '共 '+playerQueue.length+' 句';
-  return playerQueue.length > 0;
-}
-
-function playerShowLine(idx){
-  if(idx<0||idx>=playerQueue.length) return;
-  var item = playerQueue[idx];
-  var spkColor = item.speaker==='A' ? 'var(--cyan)' : 'var(--violet)';
-  var disp = document.getElementById('player-dialog-display');
-  if(disp) disp.innerHTML = '<span style="font-weight:700;color:'+spkColor+';font-family:var(--font-mono)">'+item.speaker+'：</span>'+escHtml(item.dialog);
-  var ci = document.getElementById('player-current-idx');
-  if(ci) ci.textContent = '第 '+(idx+1)+' 句';
-  var pg = document.getElementById('player-progress');
-  if(pg) pg.style.width = ((idx+1)/playerQueue.length*100)+'%';
-  playerSetState('a', item.speaker==='A'?'talk':'idle');
-  playerSetState('b', item.speaker==='B'?'talk':'idle');
-  var audio = document.getElementById('player-audio');
-  if(audio){
-    if(item.audioUrl){
-      audio.src = item.audioUrl; audio.play().catch(function(){});
-      audio.onended = function(){ if(playerPlaying) playerNext(); };
-    } else {
-      var dur = Math.max(1500, item.dialog.length*300);
-      clearTimeout(playerTimer);
-      playerTimer = setTimeout(function(){ if(playerPlaying) playerNext(); }, dur);
-    }
-  }
-}
-function playerPlay(){
-  if(!playerBuildQueue()){ alert('沒有可播放的台詞，請先在腳本工作台完成配音。'); return; }
-  playerPlaying = true;
-  var btn = document.getElementById('btn-player-play');
-  if(btn) btn.textContent = '⏸ 播放中...';
-  playerSetState('a','idle'); playerSetState('b','idle');
-  playerIdx = 0; playerShowLine(playerIdx);
-}
-function playerStop(){
-  playerPlaying = false; clearTimeout(playerTimer);
-  var audio = document.getElementById('player-audio');
-  if(audio) audio.pause();
-  var btn = document.getElementById('btn-player-play');
-  if(btn) btn.textContent = '▶ 開始播放';
-  playerSetState('a','idle'); playerSetState('b','idle');
-  var disp = document.getElementById('player-dialog-display');
-  if(disp) disp.innerHTML = '<span style="color:var(--muted);font-size:11px">已停止</span>';
-  var pg = document.getElementById('player-progress');
-  if(pg) pg.style.width = '0%';
-}
-function playerNext(){
-  clearTimeout(playerTimer);
-  var audio = document.getElementById('player-audio');
-  if(audio) audio.pause();
-  playerIdx++;
-  if(playerIdx >= playerQueue.length){
-    playerStop();
-    var disp = document.getElementById('player-dialog-display');
-    if(disp) disp.innerHTML = '<span style="color:var(--cyan);font-size:12px">✓ 播放完畢</span>';
-    return;
-  }
-  playerShowLine(playerIdx);
-}
-function playerPrev(){
-  clearTimeout(playerTimer);
-  var audio = document.getElementById('player-audio');
-  if(audio) audio.pause();
-  playerIdx = Math.max(0, playerIdx-1);
-  playerShowLine(playerIdx);
 }
 
 // ── INIT ─────────────────────────────────────────────────────────────────────

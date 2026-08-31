@@ -528,7 +528,7 @@ textarea.cell-input{
     </div>
     <div class="setting-field">
       <div class="setting-label">模型</div>
-      <input class="setting-input" id="s-gemini-model" type="text" value="gemini-2.5-flash" placeholder="gemini-2.5-flash">
+      <input class="setting-input" id="s-gemini-model" type="text" value="gemini-3.6-flash" placeholder="gemini-3.6-flash">
     </div>
   </div>
 
@@ -590,7 +590,7 @@ textarea.cell-input{
 // ── CONFIG ──────────────────────────────────────────────────────────────────
 const CFG = {
   geminiKey:      'AIzaSyB8HZKldKKawNwceiWKIGY0sg6rqItYzK8',
-  geminiModel:    'gemini-2.5-flash',
+  geminiModel:    'gemini-3.6-flash',
   fishWebhook:    'https://n8n.alice55505.dpdns.org/webhook/fish-audio-tts',
   fishVoiceA:    '',
   fishVoiceB:    '',
@@ -1751,7 +1751,7 @@ async function generateAIScript(){
   statusEl.textContent = '⏳ 生成中...'; statusEl.style.color = 'var(--amber)';
   try {
     var fullPrompt = promptText + (content ? ('\n\n【主題內容】\n' + content) : '');
-    var model = CFG.geminiModel || 'gemini-2.5-flash';
+    var model = CFG.geminiModel || 'gemini-3.6-flash';
     var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(model) + ':generateContent?key=' + encodeURIComponent(CFG.geminiKey);
     var res = await fetch(url, {
       method: 'POST',
@@ -2305,6 +2305,7 @@ function playerPrev(){
     };
     load('cfg_geminiKey',           'geminiKey');
     load('cfg_geminiModel',         'geminiModel');
+    if(CFG.geminiModel === 'gemini-2.5-flash') CFG.geminiModel = 'gemini-3.6-flash';
     load('cfg_fishWebhook',         'fishWebhook');
     load('cfg_composeWebhook',      'composeWebhook');
     load('cfg_fishVoiceA',          'fishVoiceA');

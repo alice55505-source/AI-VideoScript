@@ -281,14 +281,14 @@ textarea.cell-input{
   </div>
 
   <div class="setting-section" id="ai-script-result-wrap" style="margin-top:16px;display:none">
-    <div class="setting-title">✅ 產生完成</div>
-    <div id="ai-script-result-summary" style="font-size:12px;color:var(--text);margin-top:4px"></div>
-    <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
+    <div class="setting-title">✅ 產生結果（可直接編輯／貼回文字）</div>
+    <textarea id="ai-script-result" style="width:100%;min-height:320px;margin-top:8px;background:#0a0a0f;border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-mono);font-size:12px;line-height:1.8;padding:12px;resize:vertical"></textarea>
+    <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">
       <button class="btn btn-violet" onclick="applyAIScriptToWorkbench()">📥 套用到腳本工作台</button>
       <button class="btn btn-ghost" onclick="downloadAIScriptXLSX()">⬇ 下載腳本 XLSX</button>
       <button class="btn btn-ghost" onclick="copyAIScriptDialog()">📋 複製對話內容文字</button>
     </div>
-    <div style="margin-top:8px;font-size:11px;color:var(--muted)">要調整內容請到「腳本工作台」編輯。</div>
+    <div style="margin-top:8px;font-size:11px;color:var(--muted)">套用／下載時會依目前文字框內容（鏡次編號｜畫面描述｜素材來源｜對話內容｜影片關鍵字）重新分鏡次。</div>
   </div>
 </div>
 </div>
@@ -1730,10 +1730,8 @@ async function generateAIScript(){
     var text = parts.map(function(p){ return p.text || ''; }).join('').trim();
     if(!text) throw new Error('AI 未回傳內容：' + JSON.stringify(data).substring(0,200));
     text = text.replace(/^```[a-zA-Z]*\n?/, '').replace(/```\s*$/, '').trim();
-    var dataRows = parseAIScriptTable(text);
-    if(!dataRows.length) throw new Error('AI 回傳內容無法解析為表格，請確認格式為「鏡次編號｜畫面描述｜素材來源｜對話內容｜影片關鍵字」');
-    lastAIScriptRows = dataRows;
-    document.getElementById('ai-script-result-summary').textContent = '共產生 ' + dataRows.length + ' 個鏡次。';
+    if(!parseAIScriptTable(text).length) throw new Error('AI 回傳內容無法解析為表格，請確認格式為「鏡次編號｜畫面描述｜素材來源｜對話內容｜影片關鍵字」');
+    document.getElementById('ai-script-result').value = text;
     document.getElementById('ai-script-result-wrap').style.display = 'block';
     statusEl.textContent = '✅ 已生成'; statusEl.style.color = 'var(--green)';
   } catch(e){
@@ -1755,12 +1753,11 @@ function parseAIScriptTable(text){
   return out;
 }
 
-var lastAIScriptRows = [];
-
 function applyAIScriptToWorkbench(){
-  if(!lastAIScriptRows.length){ alert('沒有可套用的腳本內容，請先產生 AI 腳本'); return; }
+  var dataRows = parseAIScriptTable(document.getElementById('ai-script-result').value.trim());
+  if(!dataRows.length){ alert('沒有可套用的腳本內容，請確認格式為「鏡次編號｜畫面描述｜素材來源｜對話內容｜影片關鍵字」'); return; }
   rows.length = 0;
-  lastAIScriptRows.forEach(function(cols){
+  dataRows.forEach(function(cols){
     rows.push(newRow({
       id: cols[0] || uid(),
       sceneType: mapFeishuType(cols[2] || ''),
@@ -1771,12 +1768,13 @@ function applyAIScriptToWorkbench(){
   });
   render();
   switchTab('script');
-  alert('✓ 已套用 ' + lastAIScriptRows.length + ' 個鏡次到腳本工作台');
+  alert('✓ 已套用 ' + dataRows.length + ' 個鏡次到腳本工作台');
 }
 
 function downloadAIScriptXLSX(){
-  if(!lastAIScriptRows.length){ alert('沒有可下載的腳本內容，請先產生 AI 腳本'); return; }
-  var aoa = [['鏡次編號','畫面描述','素材來源','對話內容','影片關鍵字']].concat(lastAIScriptRows);
+  var dataRows = parseAIScriptTable(document.getElementById('ai-script-result').value.trim());
+  if(!dataRows.length){ alert('沒有可下載的腳本內容，請確認格式為「鏡次編號｜畫面描述｜素材來源｜對話內容｜影片關鍵字」'); return; }
+  var aoa = [['鏡次編號','畫面描述','素材來源','對話內容','影片關鍵字']].concat(dataRows);
   var ws = XLSX.utils.aoa_to_sheet(aoa);
   var wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Storyboard');
@@ -1784,8 +1782,9 @@ function downloadAIScriptXLSX(){
 }
 
 async function copyAIScriptDialog(){
-  if(!lastAIScriptRows.length){ alert('沒有可複製的內容，請先產生 AI 腳本'); return; }
-  var text = lastAIScriptRows.map(function(cols){ return cols[3] || ''; }).filter(Boolean).join('\n');
+  var dataRows = parseAIScriptTable(document.getElementById('ai-script-result').value.trim());
+  if(!dataRows.length){ alert('沒有可複製的內容，請確認格式為「鏡次編號｜畫面描述｜素材來源｜對話內容｜影片關鍵字」'); return; }
+  var text = dataRows.map(function(cols){ return cols[3] || ''; }).filter(Boolean).join('\n');
   try {
     await navigator.clipboard.writeText(text);
     alert('✓ 已複製對話內容到剪貼簿');

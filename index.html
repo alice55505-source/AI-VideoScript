@@ -286,10 +286,7 @@ textarea.cell-input{
       <button class="btn btn-ghost" onclick="clearSelected()">刪除選取</button>
     </div>
     <div class="toolbar-right">
-      <button class="btn btn-violet" onclick="runSelectedVoice()">🎙 批量配音（全部）</button>
-      <button class="btn btn-cyan" onclick="runSelectedVideo()">🎬 批量影片</button>
       <button class="btn btn-green" onclick="runAll()">⚡ 全部執行</button>
-      <button class="btn btn-green" id="btn-concat-all" onclick="concatAllShots()">🎞 串接全片</button>
     </div>
   </div>
 
@@ -568,7 +565,6 @@ const CFG = {
   assetsSessionId: null,
   uploadAssetsWebhook: 'https://n8n.alice55505.dpdns.org/webhook/upload-assets',
   composeWebhook:      'https://n8n.alice55505.dpdns.org/webhook/compose-dialog',
-  concatWebhook:       'https://n8n.alice55505.dpdns.org/webhook/concat-shots',
 };
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
@@ -1787,22 +1783,6 @@ async function runRow(id){
   }
 }
 
-async function runSelectedVoice(){
-  var sel = rows.filter(function(r){ return r.selected; });
-  if(!sel.length){ alert('請先選取列'); return; }
-  for(var i=0;i<sel.length;i++){
-    if(sel[i].sceneType==='對話模式' || sel[i].sceneType==='禱告') runDialogVoices(sel[i]);
-    else runVoice(sel[i]);
-    await sleep(300);
-  }
-}
-
-async function runSelectedVideo(){
-  var sel = rows.filter(function(r){ return r.selected&&r.sceneType!=='對話模式'&&r.sceneType!=='禱告'; });
-  if(!sel.length){ alert('請先選取真實影片或AI影片的列'); return; }
-  for(var i=0;i<sel.length;i++){ runVideo(sel[i]); await sleep(500); }
-}
-
 // ── 上傳角色素材到 n8n 伺服器 ────────────────────────────────────────────────
 async function uploadAssetsToServer(){
   var btn = document.getElementById('btn-upload-assets');
@@ -1864,65 +1844,6 @@ async function runAll(){
     if(r.sceneType === '對話模式'){ runDialogVoices(r); }
     else { runVoice(r); await sleep(300); runVideo(r); }
     await sleep(400);
-  }
-}
-
-async function concatAllShots(){
-  if(!CFG.concatWebhook){ alert('❌ 尚未設定 Concat Webhook URL'); return; }
-  const ready = rows.filter(function(r){ return r.synthVideoUrl; });
-  if(!ready.length){ alert('⚠️ 還沒有已合成的鏡次！\n請先對每個鏡次執行「▶ 執行」並合成影片。'); return; }
-  const btn = document.getElementById('btn-concat-all');
-  btn.disabled = true;
-  btn.textContent = '⏳ 串接中…';
-  try {
-    function blobToBase64(url){
-      return new Promise(function(resolve, reject){
-        var xhr = new XMLHttpRequest();
-        xhr.open('GET', url, true);
-        xhr.responseType = 'blob';
-        xhr.onload = function(){
-          var reader = new FileReader();
-          reader.onload = function(e){ resolve(e.target.result.split(',')[1]); };
-          reader.onerror = reject;
-          reader.readAsDataURL(xhr.response);
-        };
-        xhr.onerror = reject;
-        xhr.send();
-      });
-    }
-    btn.textContent = '⏳ 準備資料（0/' + ready.length + '）…';
-    var shots = [];
-    for(var i=0; i<ready.length; i++){
-      btn.textContent = '⏳ 準備資料（' + (i+1) + '/' + ready.length + '）…';
-      var b64 = await blobToBase64(ready[i].synthVideoUrl);
-      shots.push({ id: ready[i].id, videoBase64: b64 });
-    }
-    btn.textContent = '⏳ 傳送到 n8n 串接中…';
-    var res = await fetch(CFG.concatWebhook, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ shots: shots })
-    });
-    if(!res.ok) throw new Error('n8n 回傳 HTTP ' + res.status);
-    var data = await res.json();
-    var vb64 = data.videoBase64 || (Array.isArray(data) && data[0].videoBase64);
-    if(!vb64) throw new Error('n8n 未回傳影片：' + JSON.stringify(data).slice(0,120));
-    var bytes = atob(vb64);
-    var arr = new Uint8Array(bytes.length);
-    for(var b=0; b<bytes.length; b++) arr[b] = bytes.charCodeAt(b);
-    var blob = new Blob([arr], { type: 'video/mp4' });
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement('a');
-    a.href = url;
-    a.download = 'full_video.mp4';
-    a.click();
-    var dur = data.duration || (Array.isArray(data) && data[0].duration) || '?';
-    btn.textContent = '✅ 完成（' + (data.segments || ready.length) + ' 鏡次，' + dur + 's）';
-    setTimeout(function(){ btn.textContent = '🎞 串接全片'; btn.disabled = false; }, 4000);
-  } catch(e){
-    alert('❌ 串接失敗：' + e.message);
-    btn.textContent = '🎞 串接全片';
-    btn.disabled = false;
   }
 }
 

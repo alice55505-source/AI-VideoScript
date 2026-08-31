@@ -272,7 +272,7 @@ textarea.cell-input{
 
   <div class="setting-section">
     <div class="setting-title">📝 主題／內容</div>
-    <textarea id="ai-prompt-content" placeholder="貼上想要生成腳本的主題、講稿、文章內容..." style="width:100%;min-height:120px;margin-top:8px;background:#0a0a0f;border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-ui);font-size:12px;line-height:1.7;padding:12px;resize:vertical"></textarea>
+    <textarea id="ai-prompt-content" placeholder="貼上想要生成腳本的主題、講稿、文章內容..." oninput="autoResize(this)" style="width:100%;min-height:120px;margin-top:8px;background:#0a0a0f;border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-ui);font-size:12px;line-height:1.7;padding:12px;resize:vertical;overflow:hidden"></textarea>
   </div>
 
   <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">

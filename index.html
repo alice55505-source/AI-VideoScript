@@ -126,7 +126,7 @@ td{padding:6px 8px;vertical-align:top}
 .col-dialog{width:24%}
 .col-kw{width:16%}
 .col-status{width:90px;vertical-align:top;padding-top:12px}
-.col-action{width:90px;vertical-align:top;padding-top:8px}
+.col-action{width:120px;vertical-align:top;padding-top:8px}
 
 /* ── CELL INPUTS ── */
 .cell-input{
@@ -178,8 +178,6 @@ textarea.cell-input{
 .row-btn-run{background:rgba(34,211,238,0.1);color:var(--cyan);border:1px solid rgba(34,211,238,0.25)}
 .row-btn-run:hover{background:rgba(34,211,238,0.2)}
 .row-btn-run:disabled{opacity:.3;cursor:not-allowed}
-.row-btn-del{background:rgba(248,113,113,0.08);color:rgba(248,113,113,0.5);border:1px solid rgba(248,113,113,0.15)}
-.row-btn-del:hover{background:rgba(248,113,113,0.15);color:var(--red)}
 
 /* ── PREVIEW ROW ── */
 .preview-row td{padding:0;background:rgba(0,0,0,0.25)}
@@ -525,7 +523,7 @@ textarea.cell-input{
     <div class="setting-title">🤖 Gemini AI 腳本生成</div>
     <div class="setting-field">
       <div class="setting-label">API Key</div>
-      <input class="setting-input" id="s-gemini" type="password" value="" placeholder="Gemini API Key">
+      <input class="setting-input" id="s-gemini" type="password" value="AIzaSyB8HZKldKKawNwceiWKIGY0sg6rqItYzK8" placeholder="Gemini API Key">
       <div class="setting-hint">於 <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--cyan)">Google AI Studio</a> 申請，用於「AI 腳本提示詞」頁產生分鏡腳本</div>
     </div>
     <div class="setting-field">
@@ -591,7 +589,7 @@ textarea.cell-input{
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
 const CFG = {
-  geminiKey:      '',
+  geminiKey:      'AIzaSyB8HZKldKKawNwceiWKIGY0sg6rqItYzK8',
   geminiModel:    'gemini-2.5-flash',
   fishWebhook:    'https://n8n.alice55505.dpdns.org/webhook/fish-audio-tts',
   fishVoiceA:    '',
@@ -888,11 +886,6 @@ function addRow(){
   render();
 }
 
-function deleteRow(id){
-  rows = rows.filter(function(r){ return r.id!==id; });
-  render();
-}
-
 function updateRow(id, field, val){
   var r = rows.find(function(r){ return r.id===id; });
   if(r) r[field] = val;
@@ -1004,11 +997,13 @@ function makeRow(r){
     '<td class="col-dialog" id="td-dialog-'+r.id+'"></td>' +
     '<td class="col-kw" id="td-kw-'+r.id+'"></td>' +
     '<td class="col-status" id="status-'+r.id+'">'+renderStatus(r)+'</td>' +
-    '<td class="col-action"><div style="display:flex;gap:4px">'+
-      '<button class="row-btn row-btn-run" id="runbtn-'+r.id+'" onclick="runRow(\''+r.id+'\')" '+
-        ((r.videoStatus==='processing'||r.voiceStatus==='processing'||r.videoStatus==='queued'||r.voiceStatus==='queued')?'disabled':'')+
-      '>▶ 執行</button>'+
-      '<button class="row-btn row-btn-del" onclick="deleteRow(\''+r.id+'\')">✕</button>'+
+    '<td class="col-action"><div style="display:flex;flex-direction:column;gap:4px">'+
+      '<button class="row-btn row-btn-run" id="wb-video-btn-'+r.id+'" onclick="changeSceneVideo(\''+r.id+'\')" '+
+        ((r.sceneType==='對話模式'||r.sceneType==='禱告')?'disabled title="對話/禱告鏡次使用固定背景，無需更換畫面"':(r.videoStatus==='processing'?'disabled':''))+
+      '>🎬 更換畫面</button>'+
+      '<button class="row-btn row-btn-run" id="wb-voice-btn-'+r.id+'" onclick="regenerateRowVoice(\''+r.id+'\')" '+
+        (r.voiceStatus==='processing'?'disabled':'')+
+      '>🎙 重新生成配音</button>'+
     '</div></td>';
 
   var tdDesc = tr.querySelector('#td-desc-'+r.id);
@@ -1179,10 +1174,13 @@ function updateStatusCell(id){
   if(!r) return;
   var cell = document.getElementById('status-'+id);
   if(cell) cell.innerHTML = renderStatus(r);
-  var btn = document.getElementById('runbtn-'+id);
-  if(btn){
-    var busy = r.videoStatus==='processing'||r.voiceStatus==='processing'||r.videoStatus==='queued'||r.voiceStatus==='queued';
-    btn.disabled = busy;
+  var videoBtn = document.getElementById('wb-video-btn-'+id);
+  if(videoBtn && r.sceneType!=='對話模式' && r.sceneType!=='禱告'){
+    videoBtn.disabled = (r.videoStatus==='processing'||r.videoStatus==='queued');
+  }
+  var voiceBtn = document.getElementById('wb-voice-btn-'+id);
+  if(voiceBtn){
+    voiceBtn.disabled = (r.voiceStatus==='processing'||r.voiceStatus==='queued');
   }
 }
 
@@ -1245,7 +1243,6 @@ function renderAssets(){
   grid.innerHTML = done.map(function(r){
     var hasVideo = r.videoStatus==='done' && r.videoPreview;
     var hasAudio = r.voiceStatus==='done' && r.voiceAudio;
-    var hasLines = r.voiceLines && r.voiceLines.length;
 
     var html = '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden">';
 
@@ -1267,139 +1264,36 @@ function renderAssets(){
     var preview = r.keywords || r.dialog.substring(0,50);
     html += '<div style="font-size:10px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:10px" title="'+escAttr(r.dialog)+'">'+escHtml(preview)+'</div>';
 
+    var isDialogType = (r.sceneType==='對話模式' || r.sceneType==='禱告');
+    var canCompose = isDialogType
+      ? (r.voiceLines && r.voiceLines.some(function(l){ return l.audioUrl; }))
+      : (hasVideo && hasAudio);
+
     html += '<div style="display:flex;flex-wrap:wrap;gap:6px">';
 
-    if(r.sceneType !== '對話模式' && hasVideo && hasAudio){
-      html += '<button onclick="synthesizeSceneVideo(\''+r.id+'\')" id="synth-btn-'+r.id+'" '+
-        'style="display:inline-flex;align-items:center;gap:5px;padding:5px 14px;border-radius:6px;'+
-        'border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);color:var(--muted);'+
-        'font-size:10px;font-weight:600;cursor:pointer;width:100%;justify-content:center;margin-bottom:4px">'+
-        '🔄 重新合成（n8n）</button>';
-      html += '<div id="synth-status-'+r.id+'" style="font-size:10px;color:var(--muted);margin-bottom:4px;min-height:14px;width:100%"></div>';
-      if(r.synthVideoUrl){
-        html += '<a href="'+r.synthVideoUrl+'" download="'+r.id+'_synth.mp4" '+
-          'style="display:inline-flex;align-items:center;gap:5px;padding:5px 14px;border-radius:6px;'+
-          'background:rgba(34,211,238,0.12);border:1px solid rgba(34,211,238,0.4);color:var(--cyan);'+
-          'font-size:10px;font-weight:700;text-decoration:none;width:100%;justify-content:center;margin-bottom:4px">'+
-          '⬇ 下載合成影片（MP4）</a>';
-      }
-      if(r.synthSrtUrl){
-        html += '<a href="'+r.synthSrtUrl+'" download="'+r.id+'.srt" '+
-          'style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:6px;'+
-          'background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:var(--muted);'+
-          'font-size:10px;font-weight:600;text-decoration:none;margin-bottom:4px">'+
-          '⬇ 字幕（SRT）</a>';
-      }
+    if(hasAudio){
+      html += '<a href="'+r.voiceAudio+'" download="'+(r.voiceFilename||r.id+'.mp3')+'" '+
+        'style="display:inline-flex;align-items:center;gap:4px;padding:5px 12px;border-radius:6px;'+
+        'background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:var(--muted);'+
+        'font-size:10px;font-weight:600;text-decoration:none">⬇ 下載配音</a>';
     }
 
     if(hasVideo){
       html += '<a href="'+r.videoPreview+'" download="'+r.id+'.mp4" target="_blank" '+
         'style="display:inline-flex;align-items:center;gap:4px;padding:5px 12px;border-radius:6px;'+
         'background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:var(--muted);'+
-        'font-size:10px;font-weight:600;text-decoration:none">⬇ 素材影片</a>';
-      html += '<button onclick="reSearchVideo(\''+r.id+'\')" id="resrch-btn-'+r.id+'" '+
-        'style="display:inline-flex;align-items:center;gap:4px;padding:5px 12px;border-radius:6px;'+
-        'background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:var(--muted);'+
-        'font-size:10px;font-weight:600;cursor:pointer">🔀 換一支</button>';
+        'font-size:10px;font-weight:600;text-decoration:none">⬇ 下載畫面</a>';
     }
 
-    if(hasAudio){
-      html += '<a href="'+r.voiceAudio+'" download="'+(r.voiceFilename||r.id+'.mp3')+'" '+
-        'style="display:inline-flex;align-items:center;gap:4px;padding:5px 12px;border-radius:6px;'+
-        'background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:var(--muted);'+
-        'font-size:10px;font-weight:600;text-decoration:none">⬇ 配音</a>';
-    }
-
-    if(r.sceneType !== '對話模式' && hasVideo && hasAudio){
-      html += '</div>';
-      html += '<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.06)">';
-      html += '<div style="font-size:9px;font-weight:700;color:rgba(34,211,238,0.5);letter-spacing:1.2px;text-transform:uppercase;margin-bottom:6px;font-family:var(--font-mono)">本機合成</div>';
-      html += '<button onclick="composeShotLocally(\''+r.id+'\')" id="local-synth-btn-'+r.id+'" '+
-        'style="display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:6px;'+
-        'border:1px solid rgba(34,211,238,0.35);background:rgba(34,211,238,0.08);color:var(--cyan);'+
-        'font-size:11px;font-weight:700;cursor:pointer;width:100%;justify-content:center;margin-bottom:4px">'+
-        '🎬 合成影片（畫面+配音）</button>';
-      html += '<div id="local-synth-status-'+r.id+'" style="font-size:10px;color:var(--muted);min-height:14px;margin-bottom:4px"></div>';
-      if(r.localSynthUrl){
-        html += '<a href="'+r.localSynthUrl+'" download="'+r.id+'_local.mp4" '+
-          'style="display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:6px;'+
-          'background:rgba(34,211,238,0.18);border:1px solid rgba(34,211,238,0.5);color:var(--cyan);'+
-          'font-size:11px;font-weight:700;text-decoration:none;width:100%;justify-content:center">'+
-          '⬇ 下載合成影片（MP4）</a>';
-      }
-      html += '</div>';
-      html += '<div style="display:flex;flex-wrap:wrap;gap:6px">';
-    }
-
-    if((r.sceneType==='對話模式' || r.sceneType==='禱告') && hasLines){
-      var readyLines = r.voiceLines.filter(function(l){return l.audioUrl;}).length;
-      var totalLines = r.voiceLines.length;
-      html += '<button onclick="synthesizeDialogVideo(\''+r.id+'\')" id="synth-btn-'+r.id+'" '+
+    if(canCompose){
+      html += '<button onclick="composeAndDownload(\''+r.id+'\')" id="local-synth-btn-'+r.id+'" '+
         'style="display:inline-flex;align-items:center;gap:5px;padding:5px 14px;border-radius:6px;'+
-        'border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);color:var(--muted);'+
-        'font-size:10px;font-weight:600;cursor:pointer;width:100%;justify-content:center;margin-bottom:6px">'+
-        '🔄 重新合成</button>';
-      html += '<div id="synth-status-'+r.id+'" style="font-size:10px;color:var(--muted);margin-bottom:6px;min-height:14px"></div>';
-      r.voiceLines.forEach(function(line, i){
-        if(!line.audioUrl) return;
-        var spkColor = line.speaker==='A' ? 'var(--cyan)' : 'var(--violet)';
-        html += '<a href="'+line.audioUrl+'" download="'+r.id+'_'+line.speaker+(i+1)+'.mp3" '+
-          'style="display:inline-flex;align-items:center;gap:3px;padding:5px 10px;border-radius:6px;'+
-          'background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);'+
-          'font-size:10px;font-weight:600;text-decoration:none;color:'+spkColor+'">'+
-          '⬇ '+line.speaker+(i+1)+'</a>';
-      });
-
-      html += '</div>';
-      html += '<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.06)">';
-      html += '<div style="font-size:9px;font-weight:700;color:rgba(167,139,250,0.6);letter-spacing:1.2px;text-transform:uppercase;margin-bottom:6px;font-family:var(--font-mono)">本機合成</div>';
-      var hasLocalAudio = r.voiceLines.some(function(l){ return l.audioUrl; });
-      html += '<button onclick="composeShotLocally(\''+r.id+'\')" id="local-synth-btn-'+r.id+'" '+(hasLocalAudio?'':'disabled ')+
-        'style="display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:6px;'+
-        'border:1px solid rgba(167,139,250,0.35);background:rgba(167,139,250,0.08);color:var(--violet);'+
-        'font-size:11px;font-weight:700;cursor:pointer;width:100%;justify-content:center;margin-bottom:4px">'+
-        '🎬 合成對話影片 → MP4（單畫面切換）</button>';
-      html += '<div id="local-synth-status-'+r.id+'" style="font-size:10px;color:var(--muted);min-height:14px;margin-bottom:4px"></div>';
-      if(r.localSynthUrl){
-        html += '<a href="'+r.localSynthUrl+'" download="'+r.id+'_local.mp4" '+
-          'style="display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:6px;'+
-          'background:rgba(167,139,250,0.18);border:1px solid rgba(167,139,250,0.5);color:var(--violet);'+
-          'font-size:11px;font-weight:700;text-decoration:none;width:100%;justify-content:center">'+
-          '⬇ 下載合成影片（MP4）</a>';
-      }
-      if(r.synthVideoUrl){
-        html += '<a href="'+r.synthVideoUrl+'" download="'+r.id+'_synth.mp4" '+
-          'style="display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:6px;'+
-          'background:rgba(34,211,238,0.12);border:1px solid rgba(34,211,238,0.4);color:var(--cyan);'+
-          'font-size:11px;font-weight:700;text-decoration:none;width:100%;justify-content:center;margin-top:4px">'+
-          '⬇ 下載合成影片（MP4，n8n）</a>';
-      }
-      if(r.synthSrtUrl){
-        html += '<a href="'+r.synthSrtUrl+'" download="'+r.id+'.srt" '+
-          'style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:6px;'+
-          'background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:var(--muted);'+
-          'font-size:10px;font-weight:600;text-decoration:none;margin-top:4px">'+
-          '⬇ 字幕（SRT）</a>';
-      }
-      html += '</div>';
-      html += '<div style="display:flex;flex-wrap:wrap;gap:6px">';
-    } else if(hasLines){
-      r.voiceLines.forEach(function(line, i){
-        if(!line.audioUrl) return;
-        var spkColor = line.speaker==='A' ? 'var(--cyan)' : 'var(--violet)';
-        html += '<a href="'+line.audioUrl+'" download="'+r.id+'_'+line.speaker+(i+1)+'.mp3" '+
-          'style="display:inline-flex;align-items:center;gap:3px;padding:5px 10px;border-radius:6px;'+
-          'background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);'+
-          'font-size:10px;font-weight:600;text-decoration:none;color:'+spkColor+'">'+
-          '⬇ '+line.speaker+(i+1)+'</a>';
-      });
+        'border:1px solid rgba(34,211,238,0.35);background:rgba(34,211,238,0.08);color:var(--cyan);'+
+        'font-size:10px;font-weight:700;cursor:pointer">🎬 合成影片並下載</button>';
+      html += '<div id="local-synth-status-'+r.id+'" style="font-size:10px;color:var(--muted);width:100%;min-height:14px"></div>';
     }
 
     html += '</div>';
-
-    if(hasAudio && r.sceneType!=='對話模式'){
-      html += '<audio controls src="'+r.voiceAudio+'" style="width:100%;height:28px;margin-top:8px;opacity:0.8"></audio>';
-    }
 
     html += '</div></div>';
     return html;
@@ -1744,6 +1638,16 @@ async function composeShotLocally(rowId){
   }
 }
 
+async function composeAndDownload(rowId){
+  await composeShotLocally(rowId);
+  var r = rows.find(function(r){ return r.id===rowId; });
+  if(!r || !r.localSynthUrl) return;
+  var a = document.createElement('a');
+  a.href = r.localSynthUrl;
+  a.download = rowId + '_synth.' + (r.localSynthExt || 'mp4');
+  a.click();
+}
+
 // ── SETTINGS ─────────────────────────────────────────────────────────────────
 // ✅ 修正後的 saveSettings：用安全的 getVal 輔助，避免讀不存在的 element
 function getVal(id, fallback){
@@ -1920,10 +1824,18 @@ function escAttr(s){ return String(s).replace(/"/g,'&quot;').replace(/'/g,'&#39;
 function sleep(ms){ return new Promise(function(resolve){ setTimeout(resolve,ms); }); }
 
 // ── RUN ──────────────────────────────────────────────────────────────────────
-async function runRow(id){
+async function changeSceneVideo(id){
+  var r = rows.find(function(r){ return r.id===id; });
+  if(!r || r.sceneType==='對話模式' || r.sceneType==='禱告') return;
+  var btn = document.getElementById('wb-video-btn-'+id);
+  if(btn){ btn.disabled = true; btn.textContent = '⏳ 搜尋中...'; }
+  await runVideo(r);
+  if(btn){ btn.disabled = false; btn.textContent = '🎬 更換畫面'; }
+}
+
+async function regenerateRowVoice(id){
   var r = rows.find(function(r){ return r.id===id; });
   if(!r) return;
-  // ✅ 執行前先檢查必要設定，給出明確提示
   if(!CFG.fishWebhook){
     alert('❌ 尚未設定 Fish Audio Webhook URL\n\n請先到「API 設定」頁填入 n8n Webhook URL 並按「儲存設定」');
     return;
@@ -1932,13 +1844,14 @@ async function runRow(id){
     alert('❌ 尚未設定 Voice ID\n\n請到 fish.audio 選好聲音，複製 reference_id 後到「AB 設定」或「API 設定」填入');
     return;
   }
+  var btn = document.getElementById('wb-voice-btn-'+id);
+  if(btn){ btn.disabled = true; btn.textContent = '⏳ 生成中...'; }
   if(r.sceneType === '對話模式' || r.sceneType === '禱告'){
-    runDialogVoices(r);
+    await runDialogVoices(r);
   } else {
-    runVoice(r);
-    await sleep(300);
-    runVideo(r);
+    await runVoice(r);
   }
+  if(btn){ btn.disabled = false; btn.textContent = '🎙 重新生成配音'; }
 }
 
 // ── 上傳角色素材到 n8n 伺服器 ────────────────────────────────────────────────
@@ -2115,14 +2028,6 @@ function extractSpeakerText(dialog, speaker){
   return dialog.replace(/^[AaBb][：:]\s*/gmu, '').replace(/\n|\\n/g, '　').trim();
 }
 
-async function reSearchVideo(id){
-  var r = rows.find(function(r){ return r.id===id; });
-  if(!r) return;
-  var btn = document.getElementById('resrch-btn-'+id);
-  if(btn){ btn.disabled=true; btn.textContent='搜尋中...'; }
-  await runVideo(r);
-  renderAssets();
-}
 
 async function runVideo(r){
   setRowState(r,'video','processing');

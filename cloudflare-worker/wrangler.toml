@@ -1,0 +1,7 @@
+name = "ai-videoscript-gemini-proxy"
+main = "gemini-proxy.js"
+compatibility_date = "2025-01-01"
+
+# GEMINI_API_KEY 不要寫在這個檔案裡。
+# 部署後用：wrangler secret put GEMINI_API_KEY
+# 在互動提示中貼上 Key，它只會存在 Cloudflare，不會進 git。

@@ -479,9 +479,9 @@ textarea.cell-input{
   <div class="setting-section">
     <div class="setting-title">🤖 Gemini AI 腳本生成</div>
     <div class="setting-field">
-      <div class="setting-label">API Key</div>
-      <input class="setting-input" id="s-gemini" type="password" value="AIzaSyCoD288sU8IZhvxxvKh7FMuiC4D8Zg6wXY" placeholder="Gemini API Key">
-      <div class="setting-hint">於 <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--cyan)">Google AI Studio</a> 申請，用於「AI 腳本製作」頁產生分鏡腳本</div>
+      <div class="setting-label">AI 腳本生成 Worker URL</div>
+      <input class="setting-input" id="s-ai-script-worker" type="text" value="" placeholder="https://ai-videoscript-gemini-proxy.xxx.workers.dev">
+      <div class="setting-hint">Gemini API Key 已改存在 Cloudflare Worker 後端，不會出現在這個網頁的原始碼裡。部署方式見 repo 裡的 <code>cloudflare-worker/README.md</code>，部署完把 Worker 網址填在這裡。</div>
     </div>
     <div class="setting-field">
       <div class="setting-label">模型</div>
@@ -546,7 +546,7 @@ textarea.cell-input{
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
 const CFG = {
-  geminiKey:      'AIzaSyCoD288sU8IZhvxxvKh7FMuiC4D8Zg6wXY',
+  aiScriptWorker: '',
   geminiModel:    'gemini-3.6-flash',
   fishWebhook:    'https://n8n.alice55505.dpdns.org/webhook/fish-audio-tts',
   fishVoiceA:    '',
@@ -600,7 +600,7 @@ function switchTab(t){
 // ✅ 新增：同步 CFG → 設定頁 input（避免顯示過時值）
 function syncSettingsFields(){
   var fields = {
-    's-gemini': 'geminiKey',
+    's-ai-script-worker': 'aiScriptWorker',
     's-gemini-model': 'geminiModel',
     's-fish-voice-a': 'fishVoiceA',
     's-fish-voice-b': 'fishVoiceB',
@@ -1591,7 +1591,7 @@ function getVal(id, fallback){
 }
 
 function saveSettings(){
-  CFG.geminiKey            = getVal('s-gemini',                CFG.geminiKey);
+  CFG.aiScriptWorker       = getVal('s-ai-script-worker',      CFG.aiScriptWorker);
   CFG.geminiModel          = getVal('s-gemini-model',           CFG.geminiModel);
   CFG.fishWebhook          = getVal('s-fish-webhook',          CFG.fishWebhook);
   CFG.composeWebhook       = getVal('s-compose-webhook',       CFG.composeWebhook);
@@ -1610,7 +1610,7 @@ function saveSettings(){
   if(elb) elb.value = CFG.fishVoiceB;
   // 💾 持久化到 localStorage（重開頁面後自動讀回）
   try {
-    localStorage.setItem('cfg_geminiKey',           CFG.geminiKey);
+    localStorage.setItem('cfg_aiScriptWorker',      CFG.aiScriptWorker);
     localStorage.setItem('cfg_geminiModel',         CFG.geminiModel);
     localStorage.setItem('cfg_fishWebhook',         CFG.fishWebhook);
     localStorage.setItem('cfg_composeWebhook',      CFG.composeWebhook);
@@ -1687,7 +1687,7 @@ async function generateAIScript(){
   var promptText = document.getElementById('ai-prompt-template').value.trim();
   var content = document.getElementById('ai-prompt-content').value.trim();
   if(!promptText){ alert('請輸入提示詞'); return; }
-  if(!CFG.geminiKey){ alert('請先在「API 設定」填入 Gemini API Key'); return; }
+  if(!CFG.aiScriptWorker){ alert('請先在「API 設定」填入 AI 腳本生成 Worker URL（部署方式見 cloudflare-worker/README.md）'); return; }
   var btn = document.getElementById('btn-gen-ai-script');
   var statusEl = document.getElementById('ai-script-status');
   btn.disabled = true;
@@ -1695,11 +1695,10 @@ async function generateAIScript(){
   try {
     var fullPrompt = promptText + (content ? ('\n\n【主題內容】\n' + content) : '');
     var model = CFG.geminiModel || 'gemini-3.6-flash';
-    var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(model) + ':generateContent?key=' + encodeURIComponent(CFG.geminiKey);
-    var res = await fetch(url, {
+    var res = await fetch(CFG.aiScriptWorker, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts: [{ text: fullPrompt }] }] })
+      body: JSON.stringify({ prompt: fullPrompt, model: model })
     });
     if(!res.ok){ var errText = await res.text(); throw new Error('HTTP ' + res.status + '：' + errText.substring(0,200)); }
     var data = await res.json();
@@ -2158,9 +2157,11 @@ function loadPlayerImage(role, type, input){
       var v = ls.getItem(key);
       if(v !== null && v !== '') CFG[prop] = v;
     };
-    load('cfg_geminiKey',           'geminiKey');
+    load('cfg_aiScriptWorker',      'aiScriptWorker');
     load('cfg_geminiModel',         'geminiModel');
     if(CFG.geminiModel === 'gemini-2.5-flash') CFG.geminiModel = 'gemini-3.6-flash';
+    // 🔒 舊版曾把 Gemini API Key 直接存在瀏覽器，現在改用 Worker 代理，清掉舊資料
+    try { ls.removeItem('cfg_geminiKey'); } catch(e){}
     load('cfg_fishWebhook',         'fishWebhook');
     load('cfg_composeWebhook',      'composeWebhook');
     load('cfg_fishVoiceA',          'fishVoiceA');

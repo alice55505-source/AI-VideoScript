@@ -24,7 +24,8 @@ export default {
     if (request.method !== 'POST') {
       return json({ error: 'Method Not Allowed' }, 405);
     }
-    if (!env.GEMINI_API_KEY) {
+    const apiKey = (env.GEMINI_API_KEY || '').trim();
+    if (!apiKey) {
       return json({ error: 'GEMINI_API_KEY 尚未設定（wrangler secret put GEMINI_API_KEY）' }, 500);
     }
 
@@ -42,7 +43,7 @@ export default {
     const model = (body.model && String(body.model)) || 'gemini-3.6-flash';
 
     const url = 'https://generativelanguage.googleapis.com/v1beta/models/'
-      + encodeURIComponent(model) + ':generateContent?key=' + encodeURIComponent(env.GEMINI_API_KEY);
+      + encodeURIComponent(model) + ':generateContent?key=' + encodeURIComponent(apiKey);
 
     let res;
     try {

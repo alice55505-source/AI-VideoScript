@@ -120,7 +120,6 @@ td{padding:6px 8px;vertical-align:top}
 .col-check{width:32px;vertical-align:middle}
 .col-id{width:88px;vertical-align:top;padding-top:12px}
 .col-dur{width:72px;vertical-align:top;padding-top:12px}
-.col-func{width:110px;vertical-align:top;padding-top:10px}
 .col-type{width:140px;vertical-align:top;padding-top:8px}
 .col-desc{width:18%}
 .col-dialog{width:24%}
@@ -333,7 +332,6 @@ textarea.cell-input{
           <th class="col-check"><input type="checkbox" class="cb" id="check-all" onchange="toggleAll(this)"></th>
           <th class="col-id">鏡次</th>
           <th class="col-dur">估算時長</th>
-          <th class="col-func">對話功能</th>
           <th class="col-type">畫面類型</th>
           <th class="col-desc">畫面描述</th>
           <th class="col-dialog">對話內容</th>
@@ -564,8 +562,6 @@ const CFG = {
 var rows    = [];
 var nextIdx = 1;
 
-// ── CONSTANTS ─────────────────────────────────────────────────────────────────
-var DIALOG_FUNCS = ['拋出話題', '深入探討', '舉例說明', '反問引導', '總結收尾', '過渡銜接', '情感共鳴'];
 
 function uid(){ return `S${String(nextIdx++).padStart(2,'0')}_${String(Math.floor(Math.random()*9)+1).padStart(2,'0')}` }
 
@@ -574,7 +570,6 @@ function newRow(o){
   return {
     id: o.id || uid(),
     speaker: o.speaker || 'A',
-    dialogFunc: o.dialogFunc || '拋出話題',
     sceneType: o.sceneType || '真實影片',
     sceneDesc: o.sceneDesc || '',
     dialog: o.dialog || '',
@@ -825,12 +820,11 @@ function parsePaste(){
     var cols = line.split('\t');
     var id       = (cols[0]||'').trim();
     var speaker  = (cols[1]||'A').trim();
-    var func     = (cols[2]||'拋出話題').trim();
     var rawType  = (cols[3]||'').trim();
     var dialog   = (cols[4]||'').trim();
     var keywords = (cols[5]||'').trim();
     if(!id && !dialog) return;
-    rows.push(newRow({ id:id||uid(), speaker:speaker, dialogFunc:func, sceneType:mapFeishuType(rawType), dialog:dialog, keywords:keywords }));
+    rows.push(newRow({ id:id||uid(), speaker:speaker, sceneType:mapFeishuType(rawType), dialog:dialog, keywords:keywords }));
     added++;
   });
   render();
@@ -860,13 +854,6 @@ function setType(id, type){
     if(type==='對話模式') tr.querySelector('.pill-dialog')&& tr.querySelector('.pill-dialog').classList.add('active-dialog');
     if(type==='禱告') tr.querySelector('.pill-pray') && tr.querySelector('.pill-pray').classList.add('active-pray');
   }
-}
-
-function setSpeaker(id, speaker){
-  var r = rows.find(function(r){ return r.id===id; });
-  if(!r) return;
-  r.speaker = speaker;
-  render();
 }
 
 function updateVoiceHints(){}
@@ -936,16 +923,6 @@ function makeRow(r){
   tr.innerHTML = '<td class="col-check"><input type="checkbox" class="cb" '+(r.selected?'checked':'')+' onchange="toggleSelect(\''+r.id+'\')"></td>' +
     '<td class="col-id"><input class="cell-input cell-id" value="'+escAttr(r.id)+'" onchange="updateRow(\''+r.id+'\',\'id\',this.value)" style="width:72px"></td>' +
     '<td class="col-dur"><span class="dur-badge">'+estimateDur(r.dialog)+'</span></td>' +
-    '<td class="col-func"><div style="display:flex;flex-direction:column;gap:4px">'+
-      '<select class="cell-select" onchange="updateRow(\''+r.id+'\',\'dialogFunc\',this.value)">'+
-        DIALOG_FUNCS.map(function(f){ return '<option '+(r.dialogFunc===f?'selected':'')+'>'+f+'</option>'; }).join('')+
-      '</select>'+
-      '<div style="display:flex;gap:4px">'+
-        '<button onclick="setSpeaker(\''+r.id+'\',\'A\')" style="flex:1;padding:3px 0;border-radius:4px;border:1px solid '+(r.speaker==='A'?'var(--cyan)':'var(--border)')+';background:'+(r.speaker==='A'?'rgba(34,211,238,0.15)':'transparent')+';color:'+(r.speaker==='A'?'var(--cyan)':'var(--muted)')+';font-size:11px;font-weight:700;cursor:pointer;font-family:var(--font-mono)">A</button>'+
-        '<button onclick="setSpeaker(\''+r.id+'\',\'B\')" style="flex:1;padding:3px 0;border-radius:4px;border:1px solid '+(r.speaker==='B'?'var(--violet)':'var(--border)')+';background:'+(r.speaker==='B'?'rgba(167,139,250,0.15)':'transparent')+';color:'+(r.speaker==='B'?'var(--violet)':'var(--muted)')+';font-size:11px;font-weight:700;cursor:pointer;font-family:var(--font-mono)">B</button>'+
-      '</div>'+
-      '<div id="voice-hint-'+r.id+'" style="font-size:9px;color:var(--muted);font-family:var(--font-mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>'+
-    '</div></td>' +
     '<td class="col-type"><div class="type-pills">'+
       '<button class="type-pill pill-real '+(r.sceneType==='真實影片'?'active-real':'')+'" onclick="setType(\''+r.id+'\',\'真實影片\')">真實</button>'+
       '<button class="type-pill pill-dialog '+(r.sceneType==='對話模式'?'active-dialog':'')+'" onclick="setType(\''+r.id+'\',\'對話模式\')">配音</button>'+
@@ -996,7 +973,7 @@ function makeRow(r){
     var prev = document.createElement('tr');
     prev.className='preview-row';
     prev.id='prev-'+r.id;
-    prev.innerHTML = '<td colspan="10"><div class="preview-cell">'+renderPreview(r)+'</div></td>';
+    prev.innerHTML = '<td colspan="9"><div class="preview-cell">'+renderPreview(r)+'</div></td>';
     frag.appendChild(prev);
   }
 
@@ -1154,7 +1131,7 @@ function setRowState(r, type, status){
        ((r.videoStatus==='done'&&r.videoPreview)||(r.voiceStatus==='done'&&r.voiceAudio)||(r.videoStatus==='error')||(r.voiceStatus==='error'))){
       var prev = document.createElement('tr');
       prev.className='preview-row'; prev.id='prev-'+r.id;
-      prev.innerHTML = '<td colspan="10"><div class="preview-cell">'+renderPreview(r)+'</div></td>';
+      prev.innerHTML = '<td colspan="9"><div class="preview-cell">'+renderPreview(r)+'</div></td>';
       old.insertAdjacentElement('afterend',prev);
     }
   }

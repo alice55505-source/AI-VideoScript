@@ -240,7 +240,8 @@ textarea.cell-input{
     <span style="font-size:9px;color:var(--cyan);border:1px solid rgba(34,211,238,0.3);border-radius:3px;padding:1px 5px;letter-spacing:2px">BETA</span>
   </div>
   <div class="nav-tabs">
-    <button class="nav-tab active" onclick="switchTab('script')">腳本工作台</button>
+    <button class="nav-tab active" onclick="switchTab('ai-prompt')">🤖 AI 腳本提示詞</button>
+    <button class="nav-tab" onclick="switchTab('script')">腳本工作台</button>
     <button class="nav-tab" onclick="switchTab('assets')">素材庫</button>
     <button class="nav-tab" onclick="switchTab('player')">🎭 AB 設定</button>
     <button class="nav-tab" onclick="switchTab('settings')">API 設定</button>
@@ -255,8 +256,45 @@ textarea.cell-input{
   </div>
 </nav>
 
+<!-- AI SCRIPT PROMPT TAB -->
+<div class="tab-content active" id="tab-ai-prompt">
+<div class="main">
+<div class="settings">
+  <h2 style="font-family:var(--font-mono);font-size:18px;font-weight:700;margin-bottom:4px;color:var(--text)">🤖 AI 腳本提示詞</h2>
+  <p style="color:var(--muted);font-size:12px;margin-bottom:20px;line-height:1.7">編輯下方提示詞規則，貼上主題／內容後按「產生 AI 腳本」，即可用 Gemini 生成完整分鏡腳本。產生的內容可直接編輯，並套用到「腳本工作台」或下載 XLSX。</p>
+
+  <div class="setting-section">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+      <div class="setting-title" style="margin-bottom:0">📋 提示詞規則（可編輯）</div>
+      <button class="btn btn-ghost" onclick="resetAIPromptTemplate()" style="font-size:11px;padding:5px 12px">↺ 還原預設</button>
+    </div>
+    <textarea id="ai-prompt-template" style="width:100%;min-height:420px;margin-top:10px;background:#0a0a0f;border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-mono);font-size:11px;line-height:1.7;padding:12px;resize:vertical"></textarea>
+  </div>
+
+  <div class="setting-section">
+    <div class="setting-title">📝 主題／內容</div>
+    <textarea id="ai-prompt-content" placeholder="貼上想要生成腳本的主題、講稿、文章內容..." style="width:100%;min-height:120px;margin-top:8px;background:#0a0a0f;border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-ui);font-size:12px;line-height:1.7;padding:12px;resize:vertical"></textarea>
+  </div>
+
+  <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+    <button class="btn btn-cyan" onclick="generateAIScript()" id="btn-gen-ai-script">🤖 產生 AI 腳本</button>
+    <span id="ai-script-status" style="font-size:11px;color:var(--muted)"></span>
+  </div>
+
+  <div class="setting-section" id="ai-script-result-wrap" style="margin-top:16px;display:none">
+    <div class="setting-title">✅ 產生結果（可編輯）</div>
+    <textarea id="ai-script-result" style="width:100%;min-height:320px;margin-top:8px;background:#0a0a0f;border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-mono);font-size:11px;line-height:1.7;padding:12px;resize:vertical"></textarea>
+    <div style="display:flex;gap:10px;margin-top:10px">
+      <button class="btn btn-violet" onclick="applyAIScriptToWorkbench()">📥 套用到腳本工作台</button>
+      <button class="btn btn-ghost" onclick="downloadAIScriptXLSX()">⬇ 下載 XLSX</button>
+    </div>
+  </div>
+</div>
+</div>
+</div>
+
 <!-- SCRIPT TAB -->
-<div class="tab-content active" id="tab-script">
+<div class="tab-content" id="tab-script">
 <div class="main">
 
   <!-- STATS -->
@@ -484,6 +522,19 @@ textarea.cell-input{
   <h2 style="font-family:var(--font-mono);font-size:18px;font-weight:700;margin-bottom:20px;color:var(--text)">API 設定</h2>
 
   <div class="setting-section">
+    <div class="setting-title">🤖 Gemini AI 腳本生成</div>
+    <div class="setting-field">
+      <div class="setting-label">API Key</div>
+      <input class="setting-input" id="s-gemini" type="password" value="" placeholder="Gemini API Key">
+      <div class="setting-hint">於 <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--cyan)">Google AI Studio</a> 申請，用於「AI 腳本提示詞」頁產生分鏡腳本</div>
+    </div>
+    <div class="setting-field">
+      <div class="setting-label">模型</div>
+      <input class="setting-input" id="s-gemini-model" type="text" value="gemini-2.5-flash" placeholder="gemini-2.5-flash">
+    </div>
+  </div>
+
+  <div class="setting-section">
     <div class="setting-title">🎙 Fish Audio Voice ID</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
       <div class="setting-field" style="margin-bottom:0">
@@ -540,6 +591,8 @@ textarea.cell-input{
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
 const CFG = {
+  geminiKey:      '',
+  geminiModel:    'gemini-2.5-flash',
   fishWebhook:    'https://n8n.alice55505.dpdns.org/webhook/fish-audio-tts',
   fishVoiceA:    '',
   fishVoiceB:    '',
@@ -584,7 +637,7 @@ function switchTab(t){
   document.querySelectorAll('.tab-content').forEach(function(el){ el.classList.remove('active'); });
   document.querySelectorAll('.nav-tab').forEach(function(el){ el.classList.remove('active'); });
   document.getElementById('tab-'+t).classList.add('active');
-  var tabs = ['script','assets','player','settings'];
+  var tabs = ['ai-prompt','script','assets','player','settings'];
   var idx = tabs.indexOf(t);
   if(idx>=0) document.querySelectorAll('.nav-tab')[idx].classList.add('active');
   if(t==='assets') renderAssets();
@@ -596,6 +649,8 @@ function switchTab(t){
 // ✅ 新增：同步 CFG → 設定頁 input（避免顯示過時值）
 function syncSettingsFields(){
   var fields = {
+    's-gemini': 'geminiKey',
+    's-gemini-model': 'geminiModel',
     's-fish-voice-a': 'fishVoiceA',
     's-fish-voice-b': 'fishVoiceB',
     's-fish-webhook': 'fishWebhook',
@@ -773,7 +828,8 @@ function parseOldFormat(header, csvRows){
 
 function mapFeishuType(raw){
   if(!raw) return '真實影片';
-  if(/數字人|数字人|對話|对话/.test(raw)) return '對話模式';
+  if(/配音|數字人|数字人|對話|对话/.test(raw)) return '對話模式';
+  if(/禱告|祷告/.test(raw)) return '禱告';
   return '真實影片';
 }
 
@@ -1696,6 +1752,8 @@ function getVal(id, fallback){
 }
 
 function saveSettings(){
+  CFG.geminiKey            = getVal('s-gemini',                CFG.geminiKey);
+  CFG.geminiModel          = getVal('s-gemini-model',           CFG.geminiModel);
   CFG.fishWebhook          = getVal('s-fish-webhook',          CFG.fishWebhook);
   CFG.composeWebhook       = getVal('s-compose-webhook',       CFG.composeWebhook);
   // ✅ 從設定頁的新欄位讀取 Voice ID（若欄位存在才覆蓋）
@@ -1713,6 +1771,8 @@ function saveSettings(){
   if(elb) elb.value = CFG.fishVoiceB;
   // 💾 持久化到 localStorage（重開頁面後自動讀回）
   try {
+    localStorage.setItem('cfg_geminiKey',           CFG.geminiKey);
+    localStorage.setItem('cfg_geminiModel',         CFG.geminiModel);
     localStorage.setItem('cfg_fishWebhook',         CFG.fishWebhook);
     localStorage.setItem('cfg_composeWebhook',      CFG.composeWebhook);
     localStorage.setItem('cfg_fishVoiceA',          CFG.fishVoiceA);
@@ -1729,6 +1789,129 @@ function updateLeds(){
   var pl  = document.getElementById('dot-pexels-led');
   if(tl){  tl.style.background=CFG.fishWebhook?'var(--cyan)':'rgba(255,255,255,0.15)'; tl.classList.toggle('on',!!CFG.fishWebhook); }
   if(pl){  pl.style.background=CFG.pexels?'var(--green)':'rgba(255,255,255,0.15)';     pl.classList.toggle('on',!!CFG.pexels); }
+}
+
+// ── AI 腳本生成（Gemini）────────────────────────────────────────────────────
+var AI_PROMPT_DEFAULT = `你是一位專業分鏡編劇，專門為知識型 / 理性 YouTube 頻道（例如維思維）產出三分鐘 A/B 對話推動劇情的分鏡腳本。請依照以下規則產出完整分鏡：
+
+【分鏡規則】
+1. 鏡次編號：S01_01、S01_02...
+2. 畫面描述：描述場景、鏡位、素材氛圍
+3. 素材來源：配音 / 真實/禱告
+   - 配音：A+B 對話，固定背景
+   - 真實：純畫面素材，不出現 A/B 人物
+   - 禱告：純畫面素材，不出現 A/B 人物
+4. 對話內容：
+   - 開場、延伸對話、結尾 → A+B 對話
+   - 核心概念講解、舉例應用、深入探討、給解法 → 只有 A 聲音
+5. 每個鏡次約 3-5秒(不含對話鏡次)
+6. 每個真實影片鏡次需附中文搜尋關鍵字
+
+【段落分配】
+- 開場（1鏡次）：A+B，配音，固定背景
+- 核心概念講解（5-10鏡次）：單 A，真實
+- 舉例應用（5-10 鏡次）：單 A，真實
+- 延伸對話（1 鏡次）：A+B，配音，固定背景，B代表觀眾提出疑問
+- 深入探討（5-10鏡次）：單 A，真實
+- 給解法（1-2 鏡次）：單 A，真實影
+- 結尾（1 鏡次）：A+B，配音，固定背景
+-禱告（1鏡次）：A+B，配音，固定背景
+
+【輸出格式】
+鏡次編號｜畫面描述｜素材來源｜對話內容｜影片關鍵字
+
+【額外要求】
+1. 語氣貼近理性知識型 YouTube（邏輯清晰、有懸念、比喻輔助理解）
+2. B的對話應代表觀眾的疑問、常識偏差或懷疑，不要讓 B 太笨
+3. A的對話節奏分層，先鋪陳，再比喻，再深入
+4. 對話數字人鏡次背景固定，不換場景
+5. 輸出需完整涵蓋所有段落，每個鏡次都有畫面描述、素材來源、對話內容
+6. 嚴格遵循輸出只呈現腳本，無其他內容
+7. 每個真實影片 / 動畫鏡次，影片關鍵字填入 1 個中文關鍵字，對話數字人鏡次留空
+8.挑選的畫面必須排除十字架、寺廟、和尚、祭祀
+
+請依照以上規則，將以下內容生成完整三分鐘分鏡腳本，只提供表格內容，以「鏡次編號｜畫面描述｜素材來源｜對話內容｜影片關鍵字」為每一列的格式輸出，不要加上表格以外的文字或說明。`;
+
+function resetAIPromptTemplate(){
+  document.getElementById('ai-prompt-template').value = AI_PROMPT_DEFAULT;
+}
+
+async function generateAIScript(){
+  var promptText = document.getElementById('ai-prompt-template').value.trim();
+  var content = document.getElementById('ai-prompt-content').value.trim();
+  if(!promptText){ alert('請輸入提示詞'); return; }
+  if(!CFG.geminiKey){ alert('請先在「API 設定」填入 Gemini API Key'); return; }
+  var btn = document.getElementById('btn-gen-ai-script');
+  var statusEl = document.getElementById('ai-script-status');
+  btn.disabled = true;
+  statusEl.textContent = '⏳ 生成中...'; statusEl.style.color = 'var(--amber)';
+  try {
+    var fullPrompt = promptText + (content ? ('\n\n【主題內容】\n' + content) : '');
+    var model = CFG.geminiModel || 'gemini-2.5-flash';
+    var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(model) + ':generateContent?key=' + encodeURIComponent(CFG.geminiKey);
+    var res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts: [{ text: fullPrompt }] }] })
+    });
+    if(!res.ok){ var errText = await res.text(); throw new Error('HTTP ' + res.status + '：' + errText.substring(0,200)); }
+    var data = await res.json();
+    var parts = (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) || [];
+    var text = parts.map(function(p){ return p.text || ''; }).join('').trim();
+    if(!text) throw new Error('AI 未回傳內容：' + JSON.stringify(data).substring(0,200));
+    text = text.replace(/^```[a-zA-Z]*\n?/, '').replace(/```\s*$/, '').trim();
+    document.getElementById('ai-script-result').value = text;
+    document.getElementById('ai-script-result-wrap').style.display = 'block';
+    statusEl.textContent = '✅ 已生成，可編輯後套用到腳本工作台'; statusEl.style.color = 'var(--green)';
+  } catch(e){
+    statusEl.textContent = '✕ ' + e.message; statusEl.style.color = 'var(--red)';
+  }
+  btn.disabled = false;
+}
+
+function parseAIScriptTable(text){
+  var out = [];
+  text.split('\n').forEach(function(line){
+    line = line.trim();
+    if(!line) return;
+    var cols = line.split('｜').map(function(c){ return c.trim(); });
+    if(cols.length < 4) return;
+    if(cols[0] === '鏡次編號') return;
+    out.push(cols);
+  });
+  return out;
+}
+
+function applyAIScriptToWorkbench(){
+  var text = document.getElementById('ai-script-result').value.trim();
+  if(!text){ alert('沒有可套用的腳本內容'); return; }
+  var dataRows = parseAIScriptTable(text);
+  if(!dataRows.length){ alert('解析失敗，請確認格式為「鏡次編號｜畫面描述｜素材來源｜對話內容｜影片關鍵字」'); return; }
+  rows.length = 0;
+  dataRows.forEach(function(cols){
+    rows.push(newRow({
+      id: cols[0] || uid(),
+      sceneType: mapFeishuType(cols[2] || ''),
+      sceneDesc: cols[1] || '',
+      dialog: cols[3] || '',
+      keywords: cols[4] || ''
+    }));
+  });
+  render();
+  switchTab('script');
+  alert('✓ 已套用 ' + dataRows.length + ' 個鏡次到腳本工作台');
+}
+
+function downloadAIScriptXLSX(){
+  var text = document.getElementById('ai-script-result').value.trim();
+  if(!text){ alert('沒有可下載的腳本內容'); return; }
+  var dataRows = parseAIScriptTable(text);
+  if(!dataRows.length){ alert('解析失敗，請確認格式為「鏡次編號｜畫面描述｜素材來源｜對話內容｜影片關鍵字」'); return; }
+  var aoa = [['鏡次編號','畫面描述','素材來源','對話內容','影片關鍵字']].concat(dataRows);
+  var ws = XLSX.utils.aoa_to_sheet(aoa);
+  var wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Storyboard');
+  XLSX.writeFile(wb, 'ai_storyboard_' + Date.now() + '.xlsx');
 }
 
 // ── UTILS ─────────────────────────────────────────────────────────────────────
@@ -2215,6 +2398,8 @@ function playerPrev(){
       var v = ls.getItem(key);
       if(v !== null && v !== '') CFG[prop] = v;
     };
+    load('cfg_geminiKey',           'geminiKey');
+    load('cfg_geminiModel',         'geminiModel');
     load('cfg_fishWebhook',         'fishWebhook');
     load('cfg_composeWebhook',      'composeWebhook');
     load('cfg_fishVoiceA',          'fishVoiceA');
@@ -2226,6 +2411,7 @@ function playerPrev(){
 updateLeds();
 updateStats();
 render();
+resetAIPromptTemplate();
 </script>
 </body>
 </html>

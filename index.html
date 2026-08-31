@@ -240,10 +240,10 @@ textarea.cell-input{
     <span style="font-size:9px;color:var(--cyan);border:1px solid rgba(34,211,238,0.3);border-radius:3px;padding:1px 5px;letter-spacing:2px">BETA</span>
   </div>
   <div class="nav-tabs">
-    <button class="nav-tab active" onclick="switchTab('ai-prompt')">🤖 AI 腳本提示詞</button>
+    <button class="nav-tab active" onclick="switchTab('player')">🎭 AB 設定</button>
+    <button class="nav-tab" onclick="switchTab('ai-prompt')">🤖 AI 腳本提示詞</button>
     <button class="nav-tab" onclick="switchTab('script')">腳本工作台</button>
     <button class="nav-tab" onclick="switchTab('assets')">素材庫</button>
-    <button class="nav-tab" onclick="switchTab('player')">🎭 AB 設定</button>
     <button class="nav-tab" onclick="switchTab('settings')">API 設定</button>
   </div>
   <div class="nav-dots">
@@ -257,7 +257,7 @@ textarea.cell-input{
 </nav>
 
 <!-- AI SCRIPT PROMPT TAB -->
-<div class="tab-content active" id="tab-ai-prompt">
+<div class="tab-content" id="tab-ai-prompt">
 <div class="main">
 <div class="settings">
   <h2 style="font-family:var(--font-mono);font-size:18px;font-weight:700;margin-bottom:4px;color:var(--text)">🤖 AI 腳本提示詞</h2>
@@ -357,7 +357,7 @@ textarea.cell-input{
 </div>
 
 <!-- PLAYER TAB -->
-<div class="tab-content" id="tab-player">
+<div class="tab-content active" id="tab-player">
 <div class="main">
 <div class="settings">
   <h2 style="font-family:var(--font-mono);font-size:18px;font-weight:700;margin-bottom:4px;color:var(--text)">🎭 AB 設定</h2>
@@ -637,7 +637,7 @@ function switchTab(t){
   document.querySelectorAll('.tab-content').forEach(function(el){ el.classList.remove('active'); });
   document.querySelectorAll('.nav-tab').forEach(function(el){ el.classList.remove('active'); });
   document.getElementById('tab-'+t).classList.add('active');
-  var tabs = ['ai-prompt','script','assets','player','settings'];
+  var tabs = ['player','ai-prompt','script','assets','settings'];
   var idx = tabs.indexOf(t);
   if(idx>=0) document.querySelectorAll('.nav-tab')[idx].classList.add('active');
   if(t==='assets') renderAssets();

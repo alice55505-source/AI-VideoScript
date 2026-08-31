@@ -201,6 +201,7 @@ textarea.cell-input{
 
 /* ── SETTINGS ── */
 .settings{max-width:860px}
+.ai-script-page{max-width:1300px}
 .setting-section{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px}
 .setting-title{font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:1.5px;color:var(--cyan);text-transform:uppercase;margin-bottom:14px;display:flex;align-items:center;gap:8px}
 .setting-field{margin-bottom:14px}
@@ -239,7 +240,7 @@ textarea.cell-input{
   </div>
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="switchTab('player')">🎭 AB 設定</button>
-    <button class="nav-tab" onclick="switchTab('ai-prompt')">🤖 AI 腳本提示詞</button>
+    <button class="nav-tab" onclick="switchTab('ai-prompt')">🤖 AI 腳本製作</button>
     <button class="nav-tab" onclick="switchTab('script')">腳本工作台</button>
     <button class="nav-tab" onclick="switchTab('assets')">素材庫</button>
     <button class="nav-tab" onclick="switchTab('settings')">API 設定</button>
@@ -257,16 +258,16 @@ textarea.cell-input{
 <!-- AI SCRIPT PROMPT TAB -->
 <div class="tab-content" id="tab-ai-prompt">
 <div class="main">
-<div class="settings">
-  <h2 style="font-family:var(--font-mono);font-size:18px;font-weight:700;margin-bottom:4px;color:var(--text)">🤖 AI 腳本提示詞</h2>
-  <p style="color:var(--muted);font-size:12px;margin-bottom:20px;line-height:1.7">編輯下方提示詞規則，貼上主題／內容後按「產生 AI 腳本」，即可用 Gemini 生成完整分鏡腳本。產生的內容可直接編輯，並套用到「腳本工作台」或下載 XLSX。</p>
+<div class="ai-script-page">
+  <h2 style="font-family:var(--font-mono);font-size:18px;font-weight:700;margin-bottom:4px;color:var(--text)">🤖 AI 腳本製作</h2>
+  <p style="color:var(--muted);font-size:12px;margin-bottom:20px;line-height:1.7">編輯提示詞規則，貼上主題／內容後按「產生 AI 腳本」，即可用 Gemini 生成完整分鏡腳本。產生的內容可直接編輯，並套用到「腳本工作台」或下載 XLSX。</p>
 
   <div class="setting-section">
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-      <div class="setting-title" style="margin-bottom:0">📋 提示詞規則（可編輯）</div>
-      <button class="btn btn-ghost" onclick="resetAIPromptTemplate()" style="font-size:11px;padding:5px 12px">↺ 還原預設</button>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer" onclick="toggleAIPromptTemplate()">
+      <div class="setting-title" style="margin-bottom:0"><span id="ai-prompt-toggle-icon">▸</span> 提示詞規則（可編輯，點擊展開／收合）</div>
+      <button class="btn btn-ghost" onclick="event.stopPropagation();resetAIPromptTemplate()" style="font-size:11px;padding:5px 12px">↺ 還原預設</button>
     </div>
-    <textarea id="ai-prompt-template" style="width:100%;min-height:420px;margin-top:10px;background:#0a0a0f;border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-mono);font-size:11px;line-height:1.7;padding:12px;resize:vertical"></textarea>
+    <textarea id="ai-prompt-template" style="display:none;width:100%;min-height:420px;margin-top:10px;background:#0a0a0f;border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-mono);font-size:11px;line-height:1.7;padding:12px;resize:vertical"></textarea>
   </div>
 
   <div class="setting-section">
@@ -281,15 +282,15 @@ textarea.cell-input{
 
   <div class="setting-section" id="ai-script-result-wrap" style="margin-top:16px;display:none">
     <div class="setting-title">✅ 產生結果（表格可編輯）</div>
-    <div style="overflow-x:auto;margin-top:8px;border:1px solid var(--border);border-radius:8px">
-      <table style="width:100%;border-collapse:collapse;font-size:12px">
+    <div style="margin-top:8px;border:1px solid var(--border);border-radius:8px">
+      <table style="width:100%;table-layout:fixed;border-collapse:collapse;font-size:12px">
         <thead>
           <tr style="background:rgba(255,255,255,0.04)">
-            <th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--muted);font-family:var(--font-mono);white-space:nowrap">鏡次編號</th>
-            <th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--muted);font-family:var(--font-mono);width:22%">畫面描述</th>
-            <th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--muted);font-family:var(--font-mono);white-space:nowrap">素材來源</th>
-            <th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--muted);font-family:var(--font-mono);width:32%">對話內容</th>
-            <th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--muted);font-family:var(--font-mono);width:14%">影片關鍵字</th>
+            <th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--muted);font-family:var(--font-mono);width:9%">鏡次編號</th>
+            <th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--muted);font-family:var(--font-mono);width:24%">畫面描述</th>
+            <th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--muted);font-family:var(--font-mono);width:9%">素材來源</th>
+            <th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--muted);font-family:var(--font-mono);width:38%">對話內容</th>
+            <th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--muted);font-family:var(--font-mono);width:16%">影片關鍵字</th>
             <th style="width:32px"></th>
           </tr>
         </thead>
@@ -495,7 +496,7 @@ textarea.cell-input{
     <div class="setting-field">
       <div class="setting-label">API Key</div>
       <input class="setting-input" id="s-gemini" type="password" value="AIzaSyCoD288sU8IZhvxxvKh7FMuiC4D8Zg6wXY" placeholder="Gemini API Key">
-      <div class="setting-hint">於 <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--cyan)">Google AI Studio</a> 申請，用於「AI 腳本提示詞」頁產生分鏡腳本</div>
+      <div class="setting-hint">於 <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--cyan)">Google AI Studio</a> 申請，用於「AI 腳本製作」頁產生分鏡腳本</div>
     </div>
     <div class="setting-field">
       <div class="setting-label">模型</div>
@@ -1708,6 +1709,14 @@ var AI_PROMPT_DEFAULT = `你是一位專業分鏡編劇，專門為知識型 / �
 
 function resetAIPromptTemplate(){
   document.getElementById('ai-prompt-template').value = AI_PROMPT_DEFAULT;
+}
+
+function toggleAIPromptTemplate(){
+  var ta = document.getElementById('ai-prompt-template');
+  var icon = document.getElementById('ai-prompt-toggle-icon');
+  var open = ta.style.display !== 'none';
+  ta.style.display = open ? 'none' : 'block';
+  if(icon) icon.textContent = open ? '▸' : '▾';
 }
 
 async function generateAIScript(){

@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
+<script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
 :root {
   --bg: #080c14;
@@ -265,15 +266,15 @@ textarea.cell-input{
   <!-- STATS -->
   <div class="stats" id="stats-bar"></div>
 
-  <!-- CSV IMPORT -->
+  <!-- XLSX IMPORT -->
   <div class="paste-zone">
     <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
       <label style="display:inline-flex;align-items:center;gap:8px;padding:9px 20px;border-radius:8px;border:1px solid rgba(34,211,238,0.3);background:rgba(34,211,238,0.08);color:var(--cyan);font-size:13px;font-weight:600;cursor:pointer">
-        📂 上傳 CSV 檔案
-        <input type="file" accept=".csv" onchange="loadCSV(this)" style="display:none">
+        📂 上傳 XLSX 檔案
+        <input type="file" accept=".xlsx,.xls" onchange="loadXLSX(this)" style="display:none">
       </label>
       <button class="btn btn-ghost" onclick="addRow()">+ 手動新增列</button>
-      <span style="font-size:11px;color:var(--muted)">CSV 欄位：鏡次編號 · 畫面描述 · 素材來源 · 搜尋關鍵字 · 對話內容 · 音效關鍵字</span>
+      <span style="font-size:11px;color:var(--muted)">XLSX 欄位：鏡次編號 · 畫面描述 · 素材來源 · 搜尋關鍵字 · 對話內容</span>
     </div>
   </div>
 
@@ -528,15 +529,6 @@ textarea.cell-input{
   </div>
 
   <div class="setting-section">
-    <div class="setting-title">🔊 Freesound 音效搜尋</div>
-    <div class="setting-field">
-      <div class="setting-label">API Key</div>
-      <input class="setting-input" id="s-freesound" type="password" value="yQW7rRuzjVKtqbYkB8s0aNIYCCm1vScyLEoWYfsA" placeholder="freesound API key">
-      <div class="setting-hint">免費申請，幾十萬個音效可搜尋。申請：<a href="https://freesound.org/apiv2/apply" target="_blank" style="color:var(--cyan)">freesound.org/apiv2/apply</a></div>
-    </div>
-  </div>
-
-  <div class="setting-section">
     <div class="setting-title">🎬 Pexels 真實影片</div>
     <div class="setting-field">
       <div class="setting-label">API Key</div>
@@ -577,8 +569,6 @@ const CFG = {
   uploadAssetsWebhook: 'https://n8n.alice55505.dpdns.org/webhook/upload-assets',
   composeWebhook:      'https://n8n.alice55505.dpdns.org/webhook/compose-dialog',
   concatWebhook:       'https://n8n.alice55505.dpdns.org/webhook/concat-shots',
-  sfxWebhook:          'https://n8n.alice55505.dpdns.org/webhook/sfx-gen',
-  freesound:     'yQW7rRuzjVKtqbYkB8s0aNIYCCm1vScyLEoWYfsA',
 };
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
@@ -600,9 +590,6 @@ function newRow(o){
     sceneDesc: o.sceneDesc || '',
     dialog: o.dialog || '',
     keywords: o.keywords || '',
-    sfxKeywords: o.sfxKeywords || '',
-    bgmSuggestion: o.bgmSuggestion || '',
-    bgmUrl: null, sfxUrl: null,
     videoStatus:'idle', voiceStatus:'idle',
     videoPreview:null, voiceAudio:null, voiceDialogues:null,
     voiceAudioA:null, voiceAudioB:null,
@@ -636,7 +623,6 @@ function syncSettingsFields(){
     's-compose-webhook': 'composeWebhook',
     's-pexels': 'pexels',
     's-pixabay': 'pixabay',
-    's-freesound': 'freesound',
     's-upload-assets-webhook': 'uploadAssetsWebhook',
   };
   Object.keys(fields).forEach(function(id){
@@ -646,21 +632,33 @@ function syncSettingsFields(){
 }
 
 // ── CSV LOAD ─────────────────────────────────────────────────────────────────
-function loadCSV(input){
+function loadXLSX(input){
   var file = input.files[0]; if(!file) return;
   var reader = new FileReader();
   reader.onload = function(e){
-    var text = e.target.result;
-    text = text.replace(/^[\uFEFF\uFFFE]/, '');
-    parseFeishuCSV(text);
+    try {
+      var wb = XLSX.read(new Uint8Array(e.target.result), { type:'array' });
+      var ws = wb.Sheets[wb.SheetNames[0]];
+      var csvRows = XLSX.utils.sheet_to_json(ws, { header:1, defval:'', raw:false }).map(function(row){
+        return row.map(function(c){ return c===null||c===undefined ? '' : String(c); });
+      });
+      if(!csvRows || csvRows.length < 2){ alert('XLSX 格式錯誤或內容為空'); return; }
+      processDataRows(csvRows);
+    } catch(err){
+      alert('XLSX 讀取失敗：' + err.message);
+    }
   };
-  reader.readAsText(file);
+  reader.readAsArrayBuffer(file);
 }
 
 function parseFeishuCSV(text){
   text = text.replace(/^[\uFEFF\uFFFE]/, '').replace(/^\xEF\xBB\xBF/, '');
   var csvRows = parseCSVText(text);
   if(!csvRows || csvRows.length < 2){ alert('CSV 格式錯誤或內容為空'); return; }
+  processDataRows(csvRows);
+}
+
+function processDataRows(csvRows){
   var header = csvRows[0].map(function(h){ return h.trim(); });
   var col = {};
   header.forEach(function(h,i){ col[h]=i; });
@@ -698,9 +696,8 @@ function parseFallbackByOrder(csvRows){
     var rawType     = (row[2]||'').trim();
     var dialog      = (row[3]||'').trim();
     var keywords    = (row[4]||'').trim();
-    var sfxKeywords = (row[5]||'').trim();
     if(!id && !dialog) return;
-    rows.push(newRow({ id:id||uid(), sceneType:mapFeishuType(rawType), dialog:dialog, keywords:keywords, sfxKeywords:sfxKeywords }));
+    rows.push(newRow({ id:id||uid(), sceneType:mapFeishuType(rawType), dialog:dialog, keywords:keywords }));
     added++;
   });
   render();
@@ -767,9 +764,8 @@ function parseNewFormat(col, csvRows){
     var keywords  = '';
     if(col['影片關鍵字'] !== undefined) keywords = (row[col['影片關鍵字']]||'').trim();
     else if(col['搜尋關鍵字'] !== undefined) keywords = (row[col['搜尋關鍵字']]||'').trim();
-    var sfxKeywords = col['音效關鍵字'] !== undefined ? (row[col['音效關鍵字']]||'').trim() : '';
     if(!id && !dialog) return;
-    rows.push(newRow({ id:id||uid(), sceneType:mapFeishuType(rawType), sceneDesc:sceneDesc, dialog:dialog, keywords:keywords, sfxKeywords:sfxKeywords }));
+    rows.push(newRow({ id:id||uid(), sceneType:mapFeishuType(rawType), sceneDesc:sceneDesc, dialog:dialog, keywords:keywords }));
     added++;
   });
   render();
@@ -844,10 +840,8 @@ function parsePaste(){
     var rawType  = (cols[3]||'').trim();
     var dialog   = (cols[4]||'').trim();
     var keywords = (cols[5]||'').trim();
-    var sfxKeywords   = (cols[6]||'').trim();
-    var bgmSuggestion = (cols[7]||'').trim();
     if(!id && !dialog) return;
-    rows.push(newRow({ id:id||uid(), speaker:speaker, dialogFunc:func, sceneType:mapFeishuType(rawType), dialog:dialog, keywords:keywords, sfxKeywords:sfxKeywords, bgmSuggestion:bgmSuggestion }));
+    rows.push(newRow({ id:id||uid(), speaker:speaker, dialogFunc:func, sceneType:mapFeishuType(rawType), dialog:dialog, keywords:keywords }));
     added++;
   });
   render();
@@ -1376,26 +1370,6 @@ function renderAssets(){
       html += '<audio controls src="'+r.voiceAudio+'" style="width:100%;height:28px;margin-top:8px;opacity:0.8"></audio>';
     }
 
-    if(r.sfxKeywords || r.keywords){
-      var sfxKw = escHtml((r.sfxKeywords||r.keywords||'').substring(0,30));
-      var sfxDlStyle = r.sfxAudio ? 'inline-flex' : 'none';
-      var sfxSrc = r.sfxAudio || '';
-      var sfxDl  = r.sfxFilename || r.id+'_sfx.mp3';
-      html += '<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.06)">';
-      html += '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">';
-      html += '<button id="sfx-btn-'+r.id+'" onclick="generateSfx(this.dataset.id)" data-id="'+r.id+'" style="display:inline-flex;align-items:center;gap:4px;padding:5px 12px;border-radius:6px;border:1px solid rgba(251,191,36,0.3);background:rgba(251,191,36,0.08);color:var(--amber);font-size:10px;font-weight:600;cursor:pointer">🔊 生成音效</button>';
-      html += '<span style="font-size:10px;color:var(--muted)">'+sfxKw+'</span>';
-      html += '<span id="sfx-status-'+r.id+'" style="font-size:10px"></span>';
-      html += '<a id="sfx-dl-'+r.id+'" href="'+sfxSrc+'" download="'+sfxDl+'" style="display:'+sfxDlStyle+';align-items:center;gap:4px;padding:5px 12px;border-radius:6px;background:rgba(251,191,36,0.12);border:1px solid rgba(251,191,36,0.3);color:var(--amber);font-size:10px;font-weight:600;text-decoration:none">⬇ 音效</a>';
-      html += '</div>';
-      if(r.sfxAudio){
-        html += '<audio id="sfx-audio-'+r.id+'" controls src="'+sfxSrc+'" style="width:100%;height:28px;margin-top:6px;opacity:0.8"></audio>';
-      } else {
-        html += '<audio id="sfx-audio-'+r.id+'" controls style="width:100%;height:28px;margin-top:6px;opacity:0.8;display:none"></audio>';
-      }
-      html += '</div>';
-    }
-
     html += '</div></div>';
     return html;
   }).join('');
@@ -1439,7 +1413,7 @@ async function synthesizeSceneVideo(rowId){
       try { videoBase64 = await urlToBase64(r.videoPreview); videoUrlForN8n = null; } catch(e){ throw new Error('影片轉換失敗：'+e.message); }
     }
     setStatus('⏳ 傳送到 n8n 合成中（請稍候）...', 'var(--cyan)');
-    var payload = { id:r.id, sceneType:r.sceneType, video_url:videoUrlForN8n, videoBase64:videoBase64, audioBase64:audioBase64, dialog:r.dialog||'', sfxKeywords:r.sfxKeywords||'' };
+    var payload = { id:r.id, sceneType:r.sceneType, video_url:videoUrlForN8n, videoBase64:videoBase64, audioBase64:audioBase64, dialog:r.dialog||'' };
     var res = await fetch(webhook, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
     if(!res.ok) throw new Error('n8n 回傳錯誤 HTTP ' + res.status);
     var ct2 = res.headers.get('content-type') || '';
@@ -1505,7 +1479,7 @@ async function synthesizeDialogVideo(rowId){
       lines.push({ speaker: line.speaker, dialog: line.dialog, audioBase64: audioBase64 });
     }
     setStatus('⏳ 傳送到 n8n 合成中（請稍候，可能需要 30~120 秒）...', 'var(--cyan)');
-    var payload = { id:r.id, sceneType:r.sceneType, assetsSessionId:CFG.assetsSessionId||null, lines:lines, sfxKeywords:r.sfxKeywords||'' };
+    var payload = { id:r.id, sceneType:r.sceneType, assetsSessionId:CFG.assetsSessionId||null, lines:lines };
     var res = await fetch(webhook, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
     if(!res.ok) throw new Error('n8n 回傳錯誤 HTTP ' + res.status);
     var ct = res.headers.get('content-type') || '';
@@ -1757,7 +1731,6 @@ function saveSettings(){
   if(vb !== null) CFG.fishVoiceB = vb;
   CFG.pexels               = getVal('s-pexels',                CFG.pexels);
   CFG.pixabay              = getVal('s-pixabay',               CFG.pixabay);
-  CFG.freesound            = getVal('s-freesound',             CFG.freesound);
   CFG.uploadAssetsWebhook  = getVal('s-upload-assets-webhook', CFG.uploadAssetsWebhook);
   // 同步到 AB 設定頁的欄位
   var ela = document.getElementById('ab-fish-voice-a');
@@ -1772,7 +1745,6 @@ function saveSettings(){
     localStorage.setItem('cfg_fishVoiceB',          CFG.fishVoiceB);
     localStorage.setItem('cfg_pexels',              CFG.pexels);
     localStorage.setItem('cfg_pixabay',             CFG.pixabay);
-    localStorage.setItem('cfg_freesound',           CFG.freesound);
     localStorage.setItem('cfg_uploadAssetsWebhook', CFG.uploadAssetsWebhook);
   } catch(e){}
   updateLeds();
@@ -2062,41 +2034,6 @@ function extractSpeakerText(dialog, speaker){
     return myLines.join('　');
   }
   return dialog.replace(/^[AaBb][：:]\s*/gmu, '').replace(/\n|\\n/g, '　').trim();
-}
-
-// ── 音效生成（ElevenLabs SFX）────────────────────────────────────────────────
-async function generateSfx(id){
-  var r = rows.find(function(r){ return r.id===id; });
-  if(!r) return;
-  var keywords = (r.sfxKeywords || r.keywords || '').trim();
-  if(!keywords){ alert('此鏡次沒有音效關鍵字'); return; }
-  if(!CFG.sfxWebhook){ alert('sfxWebhook 未設定'); return; }
-  var btn = document.getElementById('sfx-btn-'+id);
-  var statusEl = document.getElementById('sfx-status-'+id);
-  if(btn) btn.disabled = true;
-  if(statusEl){ statusEl.textContent = '⏳ 生成中...'; statusEl.style.color = 'var(--amber)'; }
-  try {
-    var res = await fetch(CFG.sfxWebhook, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: keywords })
-    });
-    if(!res.ok) throw new Error('HTTP ' + res.status);
-    var data = await res.json();
-    if(!data.audioBase64) throw new Error(JSON.stringify(data));
-    var bytes = Uint8Array.from(atob(data.audioBase64), function(c){ return c.charCodeAt(0); });
-    var blob = new Blob([bytes], { type: 'audio/mpeg' });
-    var audioUrl = URL.createObjectURL(blob);
-    r.sfxAudio = audioUrl; r.sfxFilename = id + '_sfx.mp3';
-    var audioEl = document.getElementById('sfx-audio-'+id);
-    var dlEl    = document.getElementById('sfx-dl-'+id);
-    if(audioEl){ audioEl.src = audioUrl; audioEl.style.display = 'block'; }
-    if(dlEl){ dlEl.href = audioUrl; dlEl.download = r.sfxFilename; dlEl.style.display = 'inline-flex'; }
-    if(statusEl){ statusEl.textContent = '✅ 音效已生成'; statusEl.style.color = 'var(--green)'; }
-  } catch(e){
-    if(statusEl){ statusEl.textContent = '✕ ' + e.message; statusEl.style.color = 'var(--red)'; }
-  }
-  if(btn) btn.disabled = false;
 }
 
 async function reSearchVideo(id){
@@ -2410,7 +2347,6 @@ function playerPrev(){
     load('cfg_fishVoiceB',          'fishVoiceB');
     load('cfg_pexels',              'pexels');
     load('cfg_pixabay',             'pixabay');
-    load('cfg_freesound',           'freesound');
     load('cfg_uploadAssetsWebhook', 'uploadAssetsWebhook');
   } catch(e){}
 })();

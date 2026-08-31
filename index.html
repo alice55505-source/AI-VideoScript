@@ -160,7 +160,6 @@ textarea.cell-input{
 .type-pills{display:flex;gap:3px;flex-wrap:wrap}
 .type-pill{padding:3px 7px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:10px;font-weight:600;cursor:pointer;transition:all .15s;white-space:nowrap}
 .type-pill.active-real{border-color:var(--green);background:rgba(52,211,153,0.12);color:var(--green)}
-.type-pill.active-ai{border-color:var(--amber);background:rgba(251,191,36,0.12);color:var(--amber)}
 .type-pill.active-dialog{border-color:var(--violet);background:rgba(167,139,250,0.12);color:var(--violet)}
 .type-pill.active-pray{border-color:var(--red);background:rgba(248,113,113,0.12);color:var(--red)}
 
@@ -252,9 +251,6 @@ textarea.cell-input{
     </div>
     <div class="nav-dot" onclick="switchTab('settings')" id="dot-pexels">
       <div class="dot" id="dot-pexels-led"></div>Pexels
-    </div>
-    <div class="nav-dot" onclick="switchTab('settings')" id="dot-pixabay">
-      <div class="dot" id="dot-pixabay-led"></div>Pixabay
     </div>
   </div>
 </nav>
@@ -536,18 +532,6 @@ textarea.cell-input{
     </div>
   </div>
 
-  <!-- ✅ 新增：Pixabay API Key 在設定頁顯示 -->
-  <div class="setting-section">
-    <div class="setting-title">🎨 Pixabay 動畫影片</div>
-    <div class="setting-field">
-      <div class="setting-label">API Key</div>
-      <input class="setting-input" id="s-pixabay" type="text"
-        value="54889984-010044fd3ccd5e8b1f8ffc40a"
-        placeholder="your_pixabay_api_key">
-      <div class="setting-hint">用於「動畫」類型的影片搜尋</div>
-    </div>
-  </div>
-
   <button class="btn btn-cyan" onclick="saveSettings()" style="margin-top:4px;padding:10px 28px">儲存設定</button>
 </div>
 </div>
@@ -561,7 +545,6 @@ const CFG = {
   fishVoiceB:    '',
   cloneWebhook:  'https://n8n.alice55505.dpdns.org/webhook/clone-voice',
   pexels:        'JhBod0T1Ajqv8walrG37Hac10Nz0IodXv92yAfyoOwzhIOuG6FFXvUrq',
-  pixabay:       '54889984-010044fd3ccd5e8b1f8ffc40a',
   assetsSessionId: null,
   uploadAssetsWebhook: 'https://n8n.alice55505.dpdns.org/webhook/upload-assets',
   composeWebhook:      'https://n8n.alice55505.dpdns.org/webhook/compose-dialog',
@@ -618,7 +601,6 @@ function syncSettingsFields(){
     's-fish-webhook': 'fishWebhook',
     's-compose-webhook': 'composeWebhook',
     's-pexels': 'pexels',
-    's-pixabay': 'pixabay',
     's-upload-assets-webhook': 'uploadAssetsWebhook',
   };
   Object.keys(fields).forEach(function(id){
@@ -791,7 +773,6 @@ function parseOldFormat(header, csvRows){
 
 function mapFeishuType(raw){
   if(!raw) return '真實影片';
-  if(/AI|ai|人工|動畫|动画/.test(raw)) return '動畫';
   if(/數字人|数字人|對話|对话/.test(raw)) return '對話模式';
   return '真實影片';
 }
@@ -867,9 +848,8 @@ function setType(id, type){
   r.sceneType = type;
   var tr = document.getElementById('tr-'+id);
   if(tr){
-    tr.querySelectorAll('.type-pill').forEach(function(btn){ btn.classList.remove('active-real','active-ai','active-dialog','active-pray'); });
+    tr.querySelectorAll('.type-pill').forEach(function(btn){ btn.classList.remove('active-real','active-dialog','active-pray'); });
     if(type==='真實影片') tr.querySelector('.pill-real') && tr.querySelector('.pill-real').classList.add('active-real');
-    if(type==='動畫')  tr.querySelector('.pill-ai')   && tr.querySelector('.pill-ai').classList.add('active-ai');
     if(type==='對話模式') tr.querySelector('.pill-dialog')&& tr.querySelector('.pill-dialog').classList.add('active-dialog');
     if(type==='禱告') tr.querySelector('.pill-pray') && tr.querySelector('.pill-pray').classList.add('active-pray');
   }
@@ -961,7 +941,6 @@ function makeRow(r){
     '</div></td>' +
     '<td class="col-type"><div class="type-pills">'+
       '<button class="type-pill pill-real '+(r.sceneType==='真實影片'?'active-real':'')+'" onclick="setType(\''+r.id+'\',\'真實影片\')">真實</button>'+
-      '<button class="type-pill pill-ai '+(r.sceneType==='動畫'?'active-ai':'')+'" onclick="setType(\''+r.id+'\',\'動畫\')">動畫</button>'+
       '<button class="type-pill pill-dialog '+(r.sceneType==='對話模式'?'active-dialog':'')+'" onclick="setType(\''+r.id+'\',\'對話模式\')">配音</button>'+
       '<button class="type-pill pill-pray '+(r.sceneType==='禱告'?'active-pray':'')+'" onclick="setType(\''+r.id+'\',\'禱告\')">禱告</button>'+
     '</div></td>' +
@@ -1036,8 +1015,8 @@ function renderPreview(r){
   if(r.voiceStatus==='error')
     html += '<div class="preview-err">🎙 '+(r.voiceError||'配音生成失敗')+'</div>';
   if(r.videoStatus==='done'&&r.videoPreview){
-    var openUrl = r.videoPixabayUrl || r.videoPexelsUrl || r.videoPreview;
-    var authorInfo = r.videoAuthor || r.videoPhotographer || '';
+    var openUrl = r.videoPexelsUrl || r.videoPreview;
+    var authorInfo = r.videoPhotographer || '';
     html += '<div class="preview-video" title="點擊開啟" onclick="window.open(\''+openUrl+'\',\'_blank\')" style="cursor:pointer">'+
       '<video src="'+r.videoPreview+'" autoplay muted loop playsinline></video>'+
       '</div>'+
@@ -1371,7 +1350,7 @@ function renderAssets(){
   }).join('');
 }
 
-// ── 真實影片/動畫：呼叫 n8n 合成影片+配音 ───────────────────────────────────
+// ── 真實影片：呼叫 n8n 合成影片+配音 ───────────────────────────────────────
 async function synthesizeSceneVideo(rowId){
   var r = rows.find(function(r){ return r.id===rowId; });
   if(!r) return;
@@ -1726,7 +1705,6 @@ function saveSettings(){
   if(va !== null) CFG.fishVoiceA = va;
   if(vb !== null) CFG.fishVoiceB = vb;
   CFG.pexels               = getVal('s-pexels',                CFG.pexels);
-  CFG.pixabay              = getVal('s-pixabay',               CFG.pixabay);
   CFG.uploadAssetsWebhook  = getVal('s-upload-assets-webhook', CFG.uploadAssetsWebhook);
   // 同步到 AB 設定頁的欄位
   var ela = document.getElementById('ab-fish-voice-a');
@@ -1740,7 +1718,6 @@ function saveSettings(){
     localStorage.setItem('cfg_fishVoiceA',          CFG.fishVoiceA);
     localStorage.setItem('cfg_fishVoiceB',          CFG.fishVoiceB);
     localStorage.setItem('cfg_pexels',              CFG.pexels);
-    localStorage.setItem('cfg_pixabay',             CFG.pixabay);
     localStorage.setItem('cfg_uploadAssetsWebhook', CFG.uploadAssetsWebhook);
   } catch(e){}
   updateLeds();
@@ -1750,10 +1727,8 @@ function saveSettings(){
 function updateLeds(){
   var tl  = document.getElementById('dot-tts-led');
   var pl  = document.getElementById('dot-pexels-led');
-  var pbl = document.getElementById('dot-pixabay-led');
   if(tl){  tl.style.background=CFG.fishWebhook?'var(--cyan)':'rgba(255,255,255,0.15)'; tl.classList.toggle('on',!!CFG.fishWebhook); }
   if(pl){  pl.style.background=CFG.pexels?'var(--green)':'rgba(255,255,255,0.15)';     pl.classList.toggle('on',!!CFG.pexels); }
-  if(pbl){ pbl.style.background=CFG.pixabay?'var(--amber)':'rgba(255,255,255,0.15)';  pbl.classList.toggle('on',!!CFG.pixabay); }
 }
 
 // ── UTILS ─────────────────────────────────────────────────────────────────────
@@ -1905,7 +1880,7 @@ async function runDialogVoices(r){
   }
 }
 
-// ── VIDEO (Pexels / Pixabay) ──────────────────────────────────────────────────
+// ── VIDEO (Pexels) ──────────────────────────────────────────────────────────
 async function runVoice(r, targetRow, role){
   targetRow = targetRow || r;
   role = role || r.speaker || 'A';
@@ -1969,39 +1944,17 @@ async function reSearchVideo(id){
 async function runVideo(r){
   setRowState(r,'video','processing');
   try {
-    if(r.sceneType==='動畫'){
-      if(!CFG.pixabay) throw new Error('尚未設定 Pixabay API Key，請前往「API 設定」填入');
-      var query = encodeURIComponent(r.keywords || r.dialog.substring(0,30));
-      var url = 'https://pixabay.com/api/videos/?key='+CFG.pixabay+'&q='+query+'&video_type=animation&per_page=10&order=popular';
-      var res = await fetch(url);
-      var data = await res.json();
-      var hits = (data.hits||[]).filter(function(v){ return v.videos; });
-      if(!hits.length){
-        var url2 = 'https://pixabay.com/api/videos/?key='+CFG.pixabay+'&q='+query+'&per_page=10&order=popular';
-        var res2 = await fetch(url2);
-        var data2 = await res2.json();
-        hits = (data2.hits||[]).filter(function(v){ return v.videos; });
-      }
-      if(!hits.length) throw new Error('Pixabay 找不到相關動畫影片');
-      var pick = hits[Math.floor(Math.random()*hits.length)];
-      var vid = pick.videos.large || pick.videos.medium || pick.videos.small || pick.videos.tiny;
-      if(!vid || !vid.url) throw new Error('找不到可用的影片連結');
-      r.videoPreview = vid.url; r.videoDuration = pick.duration; r.videoPixabayUrl = pick.pageURL; r.videoAuthor = pick.user;
-      setRowState(r,'video','done');
-      if(CFG.composeWebhook && r.voiceStatus==='done' && r.voiceAudio){ synthesizeSceneVideo(r.id); }
-    } else {
-      if(!CFG.pexels) throw new Error('尚未設定 Pexels API Key');
-      var query = encodeURIComponent(r.keywords||r.dialog.substring(0,30));
-      var res = await fetch('https://api.pexels.com/videos/search?query='+query+'&per_page=5&orientation=landscape', { headers:{'Authorization': CFG.pexels} });
-      var data = await res.json();
-      var vids = (data.videos||[]).filter(function(v){ return v.video_files&&v.video_files.length; });
-      if(!vids.length) throw new Error('找不到相關影片');
-      var pick = vids[Math.floor(Math.random()*vids.length)];
-      var file = pick.video_files.sort(function(a,b){ return (b.width||0)-(a.width||0); })[0];
-      r.videoPreview = file.link; r.videoDuration = pick.duration; r.videoPhotographer = pick.user&&pick.user.name; r.videoPexelsUrl = pick.url;
-      setRowState(r,'video','done');
-      if(CFG.composeWebhook && r.voiceStatus==='done' && r.voiceAudio){ synthesizeSceneVideo(r.id); }
-    }
+    if(!CFG.pexels) throw new Error('尚未設定 Pexels API Key');
+    var query = encodeURIComponent(r.keywords||r.dialog.substring(0,30));
+    var res = await fetch('https://api.pexels.com/videos/search?query='+query+'&per_page=5&orientation=landscape', { headers:{'Authorization': CFG.pexels} });
+    var data = await res.json();
+    var vids = (data.videos||[]).filter(function(v){ return v.video_files&&v.video_files.length; });
+    if(!vids.length) throw new Error('找不到相關影片');
+    var pick = vids[Math.floor(Math.random()*vids.length)];
+    var file = pick.video_files.sort(function(a,b){ return (b.width||0)-(a.width||0); })[0];
+    r.videoPreview = file.link; r.videoDuration = pick.duration; r.videoPhotographer = pick.user&&pick.user.name; r.videoPexelsUrl = pick.url;
+    setRowState(r,'video','done');
+    if(CFG.composeWebhook && r.voiceStatus==='done' && r.voiceAudio){ synthesizeSceneVideo(r.id); }
   } catch(e) {
     r.videoError = e.message;
     setRowState(r,'video','error');
@@ -2267,7 +2220,6 @@ function playerPrev(){
     load('cfg_fishVoiceA',          'fishVoiceA');
     load('cfg_fishVoiceB',          'fishVoiceB');
     load('cfg_pexels',              'pexels');
-    load('cfg_pixabay',             'pixabay');
     load('cfg_uploadAssetsWebhook', 'uploadAssetsWebhook');
   } catch(e){}
 })();

@@ -280,9 +280,24 @@ textarea.cell-input{
   </div>
 
   <div class="setting-section" id="ai-script-result-wrap" style="margin-top:16px;display:none">
-    <div class="setting-title">✅ 產生結果（可編輯）</div>
-    <textarea id="ai-script-result" style="width:100%;min-height:320px;margin-top:8px;background:#0a0a0f;border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-mono);font-size:11px;line-height:1.7;padding:12px;resize:vertical"></textarea>
-    <div style="display:flex;gap:10px;margin-top:10px">
+    <div class="setting-title">✅ 產生結果（表格可編輯）</div>
+    <div style="overflow-x:auto;margin-top:8px;border:1px solid var(--border);border-radius:8px">
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead>
+          <tr style="background:rgba(255,255,255,0.04)">
+            <th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--muted);font-family:var(--font-mono);white-space:nowrap">鏡次編號</th>
+            <th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--muted);font-family:var(--font-mono);width:22%">畫面描述</th>
+            <th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--muted);font-family:var(--font-mono);white-space:nowrap">素材來源</th>
+            <th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--muted);font-family:var(--font-mono);width:32%">對話內容</th>
+            <th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--muted);font-family:var(--font-mono);width:14%">影片關鍵字</th>
+            <th style="width:32px"></th>
+          </tr>
+        </thead>
+        <tbody id="ai-script-tbody"></tbody>
+      </table>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">
+      <button class="btn btn-ghost" onclick="addAIScriptRow()">+ 新增列</button>
       <button class="btn btn-violet" onclick="applyAIScriptToWorkbench()">📥 套用到腳本工作台</button>
       <button class="btn btn-ghost" onclick="downloadAIScriptXLSX()">⬇ 下載 XLSX</button>
     </div>
@@ -1764,9 +1779,11 @@ async function generateAIScript(){
     var text = parts.map(function(p){ return p.text || ''; }).join('').trim();
     if(!text) throw new Error('AI 未回傳內容：' + JSON.stringify(data).substring(0,200));
     text = text.replace(/^```[a-zA-Z]*\n?/, '').replace(/```\s*$/, '').trim();
-    document.getElementById('ai-script-result').value = text;
+    var dataRows = parseAIScriptTable(text);
+    if(!dataRows.length) throw new Error('AI 回傳內容無法解析為表格，請確認格式為「鏡次編號｜畫面描述｜素材來源｜對話內容｜影片關鍵字」');
+    renderAIScriptTable(dataRows);
     document.getElementById('ai-script-result-wrap').style.display = 'block';
-    statusEl.textContent = '✅ 已生成，可編輯後套用到腳本工作台'; statusEl.style.color = 'var(--green)';
+    statusEl.textContent = '✅ 已生成，可在表格中編輯後套用到腳本工作台'; statusEl.style.color = 'var(--green)';
   } catch(e){
     statusEl.textContent = '✕ ' + e.message; statusEl.style.color = 'var(--red)';
   }
@@ -1786,11 +1803,92 @@ function parseAIScriptTable(text){
   return out;
 }
 
+var AI_SCRIPT_TYPES = ['真實','配音','禱告'];
+
+function makeAIScriptRow(cols){
+  cols = cols || [];
+  var tr = document.createElement('tr');
+  tr.style.borderTop = '1px solid var(--border)';
+
+  var tdId = document.createElement('td');
+  tdId.style.padding = '4px 6px';
+  var inpId = document.createElement('input');
+  inpId.className = 'cell-input'; inpId.style.width = '70px'; inpId.style.fontFamily = 'var(--font-mono)';
+  inpId.value = cols[0] || '';
+  tdId.appendChild(inpId);
+
+  var tdDesc = document.createElement('td');
+  tdDesc.style.padding = '4px 6px';
+  var taDesc = document.createElement('textarea');
+  taDesc.className = 'cell-input'; taDesc.rows = 1;
+  taDesc.value = cols[1] || '';
+  taDesc.addEventListener('input', function(){ autoResize(this); });
+  tdDesc.appendChild(taDesc);
+
+  var tdType = document.createElement('td');
+  tdType.style.padding = '4px 6px';
+  var selType = document.createElement('select');
+  selType.className = 'cell-select';
+  var rawType = (cols[2] || '').trim();
+  var matched = AI_SCRIPT_TYPES.indexOf(rawType) >= 0 ? rawType : (mapFeishuType(rawType)==='對話模式'?'配音':mapFeishuType(rawType)==='禱告'?'禱告':'真實');
+  AI_SCRIPT_TYPES.forEach(function(t){
+    var opt = document.createElement('option');
+    opt.value = t; opt.textContent = t; opt.selected = (t===matched);
+    selType.appendChild(opt);
+  });
+  tdType.appendChild(selType);
+
+  var tdDialog = document.createElement('td');
+  tdDialog.style.padding = '4px 6px';
+  var taDialog = document.createElement('textarea');
+  taDialog.className = 'cell-input'; taDialog.rows = 1;
+  taDialog.value = cols[3] || '';
+  taDialog.addEventListener('input', function(){ autoResize(this); });
+  tdDialog.appendChild(taDialog);
+
+  var tdKw = document.createElement('td');
+  tdKw.style.padding = '4px 6px';
+  var inpKw = document.createElement('input');
+  inpKw.className = 'cell-input';
+  inpKw.value = cols[4] || '';
+  tdKw.appendChild(inpKw);
+
+  var tdDel = document.createElement('td');
+  tdDel.style.padding = '4px 6px';
+  var btnDel = document.createElement('button');
+  btnDel.className = 'row-btn'; btnDel.textContent = '✕';
+  btnDel.style.color = 'rgba(248,113,113,0.6)';
+  btnDel.onclick = function(){ tr.remove(); };
+  tdDel.appendChild(btnDel);
+
+  tr.appendChild(tdId); tr.appendChild(tdDesc); tr.appendChild(tdType); tr.appendChild(tdDialog); tr.appendChild(tdKw); tr.appendChild(tdDel);
+  return tr;
+}
+
+function renderAIScriptTable(dataRows){
+  var tbody = document.getElementById('ai-script-tbody');
+  tbody.innerHTML = '';
+  dataRows.forEach(function(cols){ tbody.appendChild(makeAIScriptRow(cols)); });
+  setTimeout(function(){ tbody.querySelectorAll('textarea').forEach(function(ta){ autoResize(ta); }); }, 0);
+}
+
+function addAIScriptRow(){
+  document.getElementById('ai-script-tbody').appendChild(makeAIScriptRow([]));
+}
+
+function getAIScriptTableData(){
+  var out = [];
+  document.querySelectorAll('#ai-script-tbody tr').forEach(function(tr){
+    var inputs = tr.querySelectorAll('input, select, textarea');
+    var cols = Array.prototype.map.call(inputs, function(el){ return el.value.trim(); });
+    if(cols.some(function(c){ return c; })) out.push(cols);
+  });
+  return out;
+}
+
 function applyAIScriptToWorkbench(){
-  var text = document.getElementById('ai-script-result').value.trim();
-  if(!text){ alert('沒有可套用的腳本內容'); return; }
-  var dataRows = parseAIScriptTable(text);
-  if(!dataRows.length){ alert('解析失敗，請確認格式為「鏡次編號｜畫面描述｜素材來源｜對話內容｜影片關鍵字」'); return; }
+  var dataRows = getAIScriptTableData();
+  if(!dataRows.length){ alert('沒有可套用的腳本內容'); return; }
   rows.length = 0;
   dataRows.forEach(function(cols){
     rows.push(newRow({
@@ -1807,10 +1905,8 @@ function applyAIScriptToWorkbench(){
 }
 
 function downloadAIScriptXLSX(){
-  var text = document.getElementById('ai-script-result').value.trim();
-  if(!text){ alert('沒有可下載的腳本內容'); return; }
-  var dataRows = parseAIScriptTable(text);
-  if(!dataRows.length){ alert('解析失敗，請確認格式為「鏡次編號｜畫面描述｜素材來源｜對話內容｜影片關鍵字」'); return; }
+  var dataRows = getAIScriptTableData();
+  if(!dataRows.length){ alert('沒有可下載的腳本內容'); return; }
   var aoa = [['鏡次編號','畫面描述','素材來源','對話內容','影片關鍵字']].concat(dataRows);
   var ws = XLSX.utils.aoa_to_sheet(aoa);
   var wb = XLSX.utils.book_new();

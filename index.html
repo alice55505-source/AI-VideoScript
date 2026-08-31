@@ -281,14 +281,14 @@ textarea.cell-input{
   </div>
 
   <div class="setting-section" id="ai-script-result-wrap" style="margin-top:16px;display:none">
-    <div class="setting-title">✅ 產生結果（可直接編輯／貼回文字）</div>
+    <div class="setting-title">✅ 對話內容預覽（角色固定放最前面，可複製）</div>
     <textarea id="ai-script-result" style="width:100%;min-height:320px;margin-top:8px;background:#0a0a0f;border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-mono);font-size:12px;line-height:1.8;padding:12px;resize:vertical"></textarea>
     <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">
       <button class="btn btn-violet" onclick="applyAIScriptToWorkbench()">📥 套用到腳本工作台</button>
       <button class="btn btn-ghost" onclick="downloadAIScriptXLSX()">⬇ 下載腳本 XLSX</button>
       <button class="btn btn-ghost" onclick="copyAIScriptDialog()">📋 複製對話內容文字</button>
     </div>
-    <div style="margin-top:8px;font-size:11px;color:var(--muted)">套用／下載時會依目前文字框內容（鏡次編號｜畫面描述｜素材來源｜對話內容｜影片關鍵字）重新分鏡次。</div>
+    <div style="margin-top:8px;font-size:11px;color:var(--muted)">套用到腳本工作台／下載 XLSX 會使用完整產生結果（含畫面描述、素材來源等），這裡只預覽對話內容。</div>
   </div>
 </div>
 </div>
@@ -1730,8 +1730,10 @@ async function generateAIScript(){
     var text = parts.map(function(p){ return p.text || ''; }).join('').trim();
     if(!text) throw new Error('AI 未回傳內容：' + JSON.stringify(data).substring(0,200));
     text = text.replace(/^```[a-zA-Z]*\n?/, '').replace(/```\s*$/, '').trim();
-    if(!parseAIScriptTable(text).length) throw new Error('AI 回傳內容無法解析為表格，請確認格式為「鏡次編號｜畫面描述｜素材來源｜對話內容｜影片關鍵字」');
-    document.getElementById('ai-script-result').value = text;
+    var dataRows = parseAIScriptTable(text);
+    if(!dataRows.length) throw new Error('AI 回傳內容無法解析為表格，請確認格式為「鏡次編號｜畫面描述｜素材來源｜對話內容｜影片關鍵字」');
+    lastAIScriptRows = dataRows;
+    document.getElementById('ai-script-result').value = buildDialogPreview(dataRows);
     document.getElementById('ai-script-result-wrap').style.display = 'block';
     statusEl.textContent = '✅ 已生成'; statusEl.style.color = 'var(--green)';
   } catch(e){
@@ -1753,11 +1755,30 @@ function parseAIScriptTable(text){
   return out;
 }
 
-function applyAIScriptToWorkbench(){
-  var dataRows = parseAIScriptTable(document.getElementById('ai-script-result').value.trim());
-  if(!dataRows.length){ alert('沒有可套用的腳本內容，請確認格式為「鏡次編號｜畫面描述｜素材來源｜對話內容｜影片關鍵字」'); return; }
-  rows.length = 0;
+var lastAIScriptRows = [];
+
+// 對話內容統一把角色放在最前面（無標註視為單 A）
+function buildDialogPreview(dataRows){
+  var blocks = [];
   dataRows.forEach(function(cols){
+    var dialog = (cols[3] || '').replace(/\\n/g,'\n').trim();
+    if(!dialog) return;
+    var lines = [];
+    dialog.split('\n').forEach(function(line){
+      line = line.trim();
+      if(!line) return;
+      var hasPrefix = /^[AaBb][（(]?[^）)：:]*[）)]?[：:]/.test(line);
+      lines.push(hasPrefix ? line : ('A：' + line));
+    });
+    if(lines.length) blocks.push(lines.join('\n'));
+  });
+  return blocks.join('\n\n');
+}
+
+function applyAIScriptToWorkbench(){
+  if(!lastAIScriptRows.length){ alert('沒有可套用的腳本內容，請先產生 AI 腳本'); return; }
+  rows.length = 0;
+  lastAIScriptRows.forEach(function(cols){
     rows.push(newRow({
       id: cols[0] || uid(),
       sceneType: mapFeishuType(cols[2] || ''),
@@ -1768,13 +1789,12 @@ function applyAIScriptToWorkbench(){
   });
   render();
   switchTab('script');
-  alert('✓ 已套用 ' + dataRows.length + ' 個鏡次到腳本工作台');
+  alert('✓ 已套用 ' + lastAIScriptRows.length + ' 個鏡次到腳本工作台');
 }
 
 function downloadAIScriptXLSX(){
-  var dataRows = parseAIScriptTable(document.getElementById('ai-script-result').value.trim());
-  if(!dataRows.length){ alert('沒有可下載的腳本內容，請確認格式為「鏡次編號｜畫面描述｜素材來源｜對話內容｜影片關鍵字」'); return; }
-  var aoa = [['鏡次編號','畫面描述','素材來源','對話內容','影片關鍵字']].concat(dataRows);
+  if(!lastAIScriptRows.length){ alert('沒有可下載的腳本內容，請先產生 AI 腳本'); return; }
+  var aoa = [['鏡次編號','畫面描述','素材來源','對話內容','影片關鍵字']].concat(lastAIScriptRows);
   var ws = XLSX.utils.aoa_to_sheet(aoa);
   var wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Storyboard');
@@ -1782,9 +1802,8 @@ function downloadAIScriptXLSX(){
 }
 
 async function copyAIScriptDialog(){
-  var dataRows = parseAIScriptTable(document.getElementById('ai-script-result').value.trim());
-  if(!dataRows.length){ alert('沒有可複製的內容，請確認格式為「鏡次編號｜畫面描述｜素材來源｜對話內容｜影片關鍵字」'); return; }
-  var text = dataRows.map(function(cols){ return cols[3] || ''; }).filter(Boolean).join('\n');
+  var text = document.getElementById('ai-script-result').value.trim();
+  if(!text){ alert('沒有可複製的內容，請先產生 AI 腳本'); return; }
   try {
     await navigator.clipboard.writeText(text);
     alert('✓ 已複製對話內容到剪貼簿');

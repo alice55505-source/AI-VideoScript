@@ -1652,6 +1652,7 @@ var AI_PROMPT_DEFAULT = `你是一位專業分鏡編劇，專門為知識型 / �
 
 【輸出格式】
 鏡次編號｜畫面描述｜素材來源｜對話內容｜影片關鍵字
+（每一鏡次固定佔一行；若該鏡次是 A+B 對話，同一格「對話內容」裡每一句都要用「A：」或「B：」開頭標明角色，不同角色的台詞之間用「\n」（反斜線加小寫n這兩個字元，不是真正換行）分隔，例如：B：問題句\nA：回答句）
 
 【額外要求】
 1. 語氣貼近理性知識型 YouTube（邏輯清晰、有懸念、比喻輔助理解）
@@ -1729,8 +1730,12 @@ var lastAIScriptRows = [];
 
 // 對話內容統一把角色放在最前面（無標註視為單 A）——單一鏡次用，回傳仍是多行文字
 function normalizeDialogText(dialog){
+  var raw = (dialog || '').replace(/\\n/g,'\n');
+  // 防呆：AI 有時會把不同角色的台詞擠在同一行（例如「...嗎？A：其實...」），
+  // 在非行首出現的角色標記前面補上換行，拆成獨立的一行
+  raw = raw.replace(/([^\n])([AaBb][（(]?[^）)：:]{0,8}[）)]?[：:])/g, '$1\n$2');
   var lines = [];
-  (dialog || '').replace(/\\n/g,'\n').split('\n').forEach(function(line){
+  raw.split('\n').forEach(function(line){
     line = line.trim();
     if(!line) return;
     var hasPrefix = /^[AaBb][（(]?[^）)：:]*[）)]?[：:]/.test(line);

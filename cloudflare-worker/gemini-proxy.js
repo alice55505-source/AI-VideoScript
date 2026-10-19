@@ -99,15 +99,20 @@ export default {
     const url = 'https://generativelanguage.googleapis.com/v1beta/models/'
       + encodeURIComponent(model) + ':generateContent?key=' + encodeURIComponent(apiKey);
 
+    // 模型忙碌（503）時自動重試，間隔 2、4、8 秒
     let res;
-    try {
-      res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
-      });
-    } catch (e) {
-      return json({ error: '呼叫 Gemini API 失敗：' + e.message }, 502);
+    for (let attempt = 0; ; attempt++) {
+      try {
+        res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+        });
+      } catch (e) {
+        return json({ error: '呼叫 Gemini API 失敗：' + e.message }, 502);
+      }
+      if (res.status !== 503 || attempt >= 3) break;
+      await new Promise(function (r) { setTimeout(r, 2000 * Math.pow(2, attempt)); });
     }
 
     const data = await res.text();

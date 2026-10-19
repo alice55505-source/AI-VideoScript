@@ -1841,6 +1841,27 @@ function miniFinish(rowId){
 
 // ── 數字人播放器 ──────────────────────────────────────────────────────────────
 var PLAYER_VIDEOS = { a:{talk:null,idle:null,pray:null}, b:{talk:null,idle:null,pray:null} };
+// 預設角色素材（repo 的 assets/ 資料夾）：A＝豬、B＝狗。AB 設定頁上傳可臨時替換
+var DEFAULT_PLAYER_ASSETS = {
+  a:{ talk:'assets/豬說話.mp4', idle:'assets/靜止畫面.jpeg', pray:'assets/豬禱告.mp4' },
+  b:{ talk:'assets/狗說話.mp4', idle:'assets/靜止畫面.jpeg', pray:'assets/狗禱告.mp4' },
+};
+function loadDefaultPlayerAssets(){
+  ['a','b'].forEach(function(role){
+    ['talk','idle','pray'].forEach(function(type){
+      var src = DEFAULT_PLAYER_ASSETS[role][type];
+      if(!src || PLAYER_VIDEOS[role][type]) return;
+      var url = encodeURI(src);
+      PLAYER_VIDEOS[role][type] = url;
+      var prev = document.getElementById('prev-'+role+'-'+type);
+      var lbl  = document.getElementById('lbl-'+role+'-'+type);
+      var box  = document.getElementById('box-'+role+'-'+type);
+      if(prev){ prev.src=url; prev.style.display='block'; }
+      if(lbl) lbl.style.display='none';
+      if(box) box.classList.add('has-video');
+    });
+  });
+}
 
 function loadPlayerVideo(role, type, input){
   var file = input.files[0]; if(!file) return;
@@ -1886,6 +1907,7 @@ function loadPlayerImage(role, type, input){
     load('cfg_pexels',              'pexels');
   } catch(e){}
 })();
+loadDefaultPlayerAssets();
 updateLeds();
 updateStats();
 render();

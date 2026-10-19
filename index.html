@@ -846,8 +846,20 @@ function renderStatus(r){
     if(s==='error')      return '<span class="status status-error">✕ 錯誤</span>';
     return '<span class="status status-idle">待機</span>';
   }
-  if(r.sceneType==='對話模式' || r.sceneType==='禱告') return pick(r.voiceStatus);
-  return pick(r.videoStatus);
+  function withErr(s, msg){
+    var html = pick(s);
+    if(s==='error' && msg) html += '<div style="font-size:9px;color:var(--red);margin-top:4px;line-height:1.4;word-break:break-all">'+escHtml(msg)+'</div>';
+    return html;
+  }
+  if(r.sceneType==='對話模式' || r.sceneType==='禱告') return withErr(r.voiceStatus, r.voiceError);
+  return withErr(r.videoStatus, r.videoError);
+}
+function escHtml(t){ return String(t).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+// 讀出 Worker 回傳的錯誤訊息（例如 FISH_API_KEY 尚未設定），不只顯示 HTTP 狀態碼
+async function ttsErrorMessage(res){
+  var t = '';
+  try { t = await res.text(); var j = JSON.parse(t); if(j && j.error) t = j.error; } catch(_){}
+  return 'HTTP ' + res.status + (t ? '：' + String(t).substring(0, 200) : '');
 }
 
 function renderPreview(r){
@@ -969,9 +981,10 @@ function updateStatusCell(id){
   }
 }
 
-function setRowState(r, type, status){
-  if(type==='video') r.videoStatus=status;
-  else r.voiceStatus=status;
+function setRowState(r, type, status, errMsg){
+  if(type==='video'){ r.videoStatus=status; if(errMsg!==undefined) r.videoError=errMsg; }
+  else { r.voiceStatus=status; if(errMsg!==undefined) r.voiceError=errMsg; }
+  if(status==='processing'){ if(type==='video') r.videoError=null; else r.voiceError=null; }
   updateStatusCell(r.id);
   var old = document.getElementById('tr-'+r.id);
   if(old){
@@ -1577,7 +1590,7 @@ async function runDialogVoices(r){
       if(!voiceId){ r.voiceLines.push({ speaker:s.speaker, dialog:s.dialog, audioUrl:null, error:'未設定 Voice ID' }); continue; }
       try {
         var res = await fetch(ttsUrl(), { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ id:r.id+'_'+i, speaker:s.speaker, text:s.dialog, reference_id:voiceId, speed:0.8 }) });
-        if(!res.ok) throw new Error('HTTP '+res.status);
+        if(!res.ok) throw new Error(await ttsErrorMessage(res));
         var ct = res.headers.get('content-type')||'';
         var audioUrl;
         if(ct.includes('audio')||ct.includes('octet-stream')){
@@ -1600,6 +1613,7 @@ async function runDialogVoices(r){
       setRowState(r,'voice','processing');
     }
     r.voiceAudio = (r.voiceLines.find(function(l){return l.audioUrl;})||{}).audioUrl || null;
+    if(!r.voiceAudio) throw new Error('全部台詞配音失敗：' + ((r.voiceLines[0]||{}).error || '未知原因'));
     setRowState(r,'voice','done');
     var cell = document.getElementById('status-'+r.id);
     if(cell) cell.innerHTML += '<br><span onclick="switchTab(\'assets\')" style="font-size:9px;color:var(--cyan);cursor:pointer;text-decoration:underline">→ 素材庫合成</span>';
@@ -1623,7 +1637,7 @@ async function runVoice(r, targetRow, role){
     var text = extractSpeakerText(r.dialog, role);
     if(!text) throw new Error('找不到角色 '+role+' 的台詞');
     var res = await fetch(ttsUrl(), { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ id:r.id, speaker:role, text:text, reference_id:voiceId, speed:0.8 }) });
-    if(!res.ok) throw new Error('Fish Audio HTTP '+res.status);
+    if(!res.ok) throw new Error(await ttsErrorMessage(res));
     var ct = res.headers.get('content-type') || '';
     var audioUrl;
     if(ct.includes('audio') || ct.includes('octet-stream')){

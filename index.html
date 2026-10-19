@@ -360,7 +360,7 @@ textarea.cell-input{
 <div class="main">
 <div class="settings">
   <h2 style="font-family:var(--font-mono);font-size:18px;font-weight:700;margin-bottom:4px;color:var(--text)">🎭 AB 設定</h2>
-  <p style="color:var(--muted);font-size:12px;margin-bottom:24px">設定 A、B 角色的影片素材與參考音頻，用於數字人播放與聲音克隆配音。</p>
+  <p style="color:var(--muted);font-size:12px;margin-bottom:24px">設定 A、B 角色的影片素材，用於數字人播放與影片合成。（Voice ID 在「API 設定」）</p>
 
   <!-- 素材上傳 -->
   <div class="setting-section">
@@ -387,11 +387,6 @@ textarea.cell-input{
             </div>
             <input type="file" id="up-a-idle" accept="image/*" style="display:none" onchange="loadPlayerImage('a','idle',this)">
           </div>
-          <div>
-            <div class="setting-label">🎙 Fish Audio Voice ID</div>
-            <input class="setting-input" id="ab-fish-voice-a" type="text" value="" placeholder="reference_id" style="margin-top:4px" oninput="CFG.fishVoiceA=this.value.trim()">
-            <div style="font-size:10px;color:var(--muted);margin-top:4px">到 <a href="https://fish.audio" target="_blank" style="color:var(--cyan)">fish.audio</a> 選好聲音後複製 reference_id 填入</div>
-          </div>
         </div>
       </div>
 
@@ -414,11 +409,6 @@ textarea.cell-input{
               <span id="lbl-b-idle" style="font-size:11px;color:var(--muted)">點擊上傳靜止圖片</span>
             </div>
             <input type="file" id="up-b-idle" accept="image/*" style="display:none" onchange="loadPlayerImage('b','idle',this)">
-          </div>
-          <div>
-            <div class="setting-label">🎙 Fish Audio Voice ID</div>
-            <input class="setting-input" id="ab-fish-voice-b" type="text" value="" placeholder="reference_id" style="margin-top:4px" oninput="CFG.fishVoiceB=this.value.trim()">
-            <div style="font-size:10px;color:var(--muted);margin-top:4px">到 <a href="https://fish.audio" target="_blank" style="color:var(--violet)">fish.audio</a> 選好聲音後複製 reference_id 填入</div>
           </div>
         </div>
       </div>
@@ -477,14 +467,14 @@ textarea.cell-input{
       <div class="setting-field" style="margin-bottom:0">
         <div class="setting-label">A 角色 Voice ID</div>
         <input class="setting-input" id="s-fish-voice-a" type="text" value="" placeholder="reference_id"
-          oninput="CFG.fishVoiceA=this.value.trim(); var el=document.getElementById('ab-fish-voice-a'); if(el) el.value=this.value.trim();">
-        <div class="setting-hint">到 fish.audio 選好聲音後複製 reference_id（與 AB 設定頁同步）</div>
+          oninput="CFG.fishVoiceA=this.value.trim();">
+        <div class="setting-hint">到 fish.audio 選好聲音後複製 reference_id</div>
       </div>
       <div class="setting-field" style="margin-bottom:0">
         <div class="setting-label">B 角色 Voice ID</div>
         <input class="setting-input" id="s-fish-voice-b" type="text" value="" placeholder="reference_id"
-          oninput="CFG.fishVoiceB=this.value.trim(); var el=document.getElementById('ab-fish-voice-b'); if(el) el.value=this.value.trim();">
-        <div class="setting-hint">到 fish.audio 選好聲音後複製 reference_id（與 AB 設定頁同步）</div>
+          oninput="CFG.fishVoiceB=this.value.trim();">
+        <div class="setting-hint">到 fish.audio 選好聲音後複製 reference_id</div>
       </div>
     </div>
   </div>
@@ -1413,11 +1403,6 @@ function saveSettings(){
   if(va !== null) CFG.fishVoiceA = va;
   if(vb !== null) CFG.fishVoiceB = vb;
   CFG.pexels               = getVal('s-pexels',                CFG.pexels);
-  // 同步到 AB 設定頁的欄位
-  var ela = document.getElementById('ab-fish-voice-a');
-  var elb = document.getElementById('ab-fish-voice-b');
-  if(ela) ela.value = CFG.fishVoiceA;
-  if(elb) elb.value = CFG.fishVoiceB;
   // 💾 持久化到 localStorage（重開頁面後自動讀回）
   try {
     localStorage.setItem('cfg_aiScriptWorker',      CFG.aiScriptWorker);
@@ -1633,7 +1618,7 @@ async function regenerateRowVoice(id){
     return;
   }
   if(!CFG.fishVoiceA && !CFG.fishVoiceB){
-    alert('❌ 尚未設定 Voice ID\n\n請到 fish.audio 選好聲音，複製 reference_id 後到「AB 設定」或「API 設定」填入');
+    alert('❌ 尚未設定 Voice ID\n\n請到 fish.audio 選好聲音，複製 reference_id 後到「API 設定」填入');
     return;
   }
   var btn = document.getElementById('wb-voice-btn-'+id);
@@ -1662,7 +1647,7 @@ async function runDialogVoices(r){
   setRowState(r,'voice','processing');
   try {
     if(!CFG.aiScriptWorker) throw new Error('尚未設定 Worker URL（API 設定頁）');
-    if(!CFG.fishVoiceA && !CFG.fishVoiceB) throw new Error('請先在「AB 設定」上傳音檔克隆 A/B 角色聲音');
+    if(!CFG.fishVoiceA && !CFG.fishVoiceB) throw new Error('請先在「API 設定」填入 A/B 角色的 Voice ID');
     var dialog = r.dialog.replace(/\\n/g,'\n');
     var lines = dialog.split('\n').map(function(l){ return l.trim(); }).filter(Boolean);
     var sentences = [];
@@ -1722,7 +1707,7 @@ async function runVoice(r, targetRow, role){
   try {
     if(!CFG.aiScriptWorker) throw new Error('尚未設定 Worker URL（API 設定頁）');
     var voiceId = role === 'B' ? CFG.fishVoiceB : CFG.fishVoiceA;
-    if(!voiceId) throw new Error('請先在「AB 設定」上傳音檔克隆 '+role+' 角色的聲音');
+    if(!voiceId) throw new Error('請先在「API 設定」填入 '+role+' 角色的 Voice ID');
     var text = extractSpeakerText(r.dialog, role);
     if(!text) throw new Error('找不到角色 '+role+' 的台詞');
     var res = await fetch(ttsUrl(), { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ id:r.id, speaker:role, text:text, reference_id:voiceId, speed:0.8 }) });
@@ -1856,6 +1841,27 @@ function miniFinish(rowId){
 
 // ── 數字人播放器 ──────────────────────────────────────────────────────────────
 var PLAYER_VIDEOS = { a:{talk:null,idle:null,pray:null}, b:{talk:null,idle:null,pray:null} };
+// 預設角色素材（repo 的 assets/ 資料夾）：A＝豬、B＝狗。AB 設定頁上傳可臨時替換
+var DEFAULT_PLAYER_ASSETS = {
+  a:{ talk:'assets/豬說話.mp4', idle:'assets/靜止畫面.jpeg', pray:'assets/豬禱告.mp4' },
+  b:{ talk:'assets/狗說話.mp4', idle:'assets/靜止畫面.jpeg', pray:'assets/狗禱告.mp4' },
+};
+function loadDefaultPlayerAssets(){
+  ['a','b'].forEach(function(role){
+    ['talk','idle','pray'].forEach(function(type){
+      var src = DEFAULT_PLAYER_ASSETS[role][type];
+      if(!src || PLAYER_VIDEOS[role][type]) return;
+      var url = encodeURI(src);
+      PLAYER_VIDEOS[role][type] = url;
+      var prev = document.getElementById('prev-'+role+'-'+type);
+      var lbl  = document.getElementById('lbl-'+role+'-'+type);
+      var box  = document.getElementById('box-'+role+'-'+type);
+      if(prev){ prev.src=url; prev.style.display='block'; }
+      if(lbl) lbl.style.display='none';
+      if(box) box.classList.add('has-video');
+    });
+  });
+}
 
 function loadPlayerVideo(role, type, input){
   var file = input.files[0]; if(!file) return;
@@ -1901,6 +1907,7 @@ function loadPlayerImage(role, type, input){
     load('cfg_pexels',              'pexels');
   } catch(e){}
 })();
+loadDefaultPlayerAssets();
 updateLeds();
 updateStats();
 render();

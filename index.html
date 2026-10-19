@@ -1841,10 +1841,10 @@ function miniFinish(rowId){
 
 // ── 數字人播放器 ──────────────────────────────────────────────────────────────
 var PLAYER_VIDEOS = { a:{talk:null,idle:null,pray:null}, b:{talk:null,idle:null,pray:null} };
-// 預設角色素材（repo 的 assets/ 資料夾）：A＝豬、B＝狗。AB 設定頁上傳可臨時替換
+// 預設角色素材（repo 的 assets/ 資料夾）：A＝狗、B＝豬。AB 設定頁上傳可臨時替換
 var DEFAULT_PLAYER_ASSETS = {
-  a:{ talk:'assets/豬說話.mp4', idle:'assets/靜止畫面.jpeg', pray:'assets/豬禱告.mp4' },
-  b:{ talk:'assets/狗說話.mp4', idle:'assets/靜止畫面.jpeg', pray:'assets/狗禱告.mp4' },
+  a:{ talk:'assets/狗說話.mp4', idle:'assets/靜止畫面.jpeg', pray:'assets/狗禱告.mp4' },
+  b:{ talk:'assets/豬說話.mp4', idle:'assets/靜止畫面.jpeg', pray:'assets/豬禱告.mp4' },
 };
 function loadDefaultPlayerAssets(){
   ['a','b'].forEach(function(role){

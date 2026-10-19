@@ -447,24 +447,6 @@ textarea.cell-input{
     </div>
   </div>
 
-  <div class="setting-section" style="margin-top:16px">
-    <div class="setting-title">🚀 上傳角色素材（快取加速）</div>
-    <div style="font-size:11px;color:var(--muted);margin-bottom:14px;line-height:1.7">
-      上傳一次後，之後每次合成只傳音頻，<span style="color:var(--cyan)">速度提升 5~10 倍</span>。<br>
-      角色影片/圖片有更換時請重新上傳。
-    </div>
-    <div class="setting-field">
-      <div class="setting-label">Upload Assets Webhook URL</div>
-      <input class="setting-input" id="s-upload-assets-webhook" type="text"
-        value="https://n8n.alice55505.dpdns.org/webhook/upload-assets"
-        placeholder="https://n8n.xxx.dpdns.org/webhook/upload-assets">
-      <div class="setting-hint">角色素材上傳到伺服器，對應 upload-assets-workflow</div>
-    </div>
-    <button class="btn btn-cyan" id="btn-upload-assets" onclick="uploadAssetsToServer()" style="margin-top:8px">
-      ⬆ 上傳角色素材到伺服器
-    </button>
-    <div id="upload-assets-status" style="font-size:11px;color:var(--muted);margin-top:8px"></div>
-  </div>
 
 </div>
 </div>
@@ -477,11 +459,11 @@ textarea.cell-input{
   <h2 style="font-family:var(--font-mono);font-size:18px;font-weight:700;margin-bottom:20px;color:var(--text)">API 設定</h2>
 
   <div class="setting-section">
-    <div class="setting-title">🤖 Gemini AI 腳本生成</div>
+    <div class="setting-title">🤖 Cloudflare Worker（AI 腳本 + Fish Audio 配音）</div>
     <div class="setting-field">
-      <div class="setting-label">AI 腳本生成 Worker URL</div>
+      <div class="setting-label">Worker URL</div>
       <input class="setting-input" id="s-ai-script-worker" type="text" value="" placeholder="https://ai-videoscript-gemini-proxy.xxx.workers.dev">
-      <div class="setting-hint">Gemini API Key 已改存在 Cloudflare Worker 後端，不會出現在這個網頁的原始碼裡。部署方式見 repo 裡的 <code>cloudflare-worker/README.md</code>，部署完把 Worker 網址填在這裡。</div>
+      <div class="setting-hint">Gemini / Fish Audio API Key 都存在 Cloudflare Worker 後端，不會出現在這個網頁的原始碼裡。AI 腳本生成與配音都走這個網址。部署方式見 repo 裡的 <code>cloudflare-worker/README.md</code>，部署完把 Worker 網址填在這裡。</div>
     </div>
     <div class="setting-field">
       <div class="setting-label">模型</div>
@@ -507,26 +489,6 @@ textarea.cell-input{
     </div>
   </div>
 
-  <!-- 影片合成 -->
-  <div class="setting-section">
-    <div class="setting-title">🎬 影片合成（n8n compose-dialog）</div>
-    <div class="setting-field">
-      <div class="setting-label">Compose Webhook URL</div>
-      <input class="setting-input" id="s-compose-webhook" type="text"
-        value="https://n8n.alice55505.dpdns.org/webhook/compose-dialog"
-        placeholder="https://n8n.xxx.dpdns.org/webhook/compose-dialog">
-      <div class="setting-hint">對話模式鏡次 → 素材庫「合成完整影片」按鈕會呼叫此 webhook</div>
-    </div>
-  </div>
-
-  <div class="setting-section">
-    <div class="setting-field">
-      <div class="setting-label">n8n Webhook URL（Fish Audio TTS）</div>
-      <input class="setting-input" id="s-fish-webhook" type="text" value="https://n8n.alice55505.dpdns.org/webhook/fish-audio-tts" placeholder="https://n8n.xxx.dpdns.org/webhook/...">
-      <div class="setting-hint">n8n 負責呼叫 Fish Audio API，填 Production URL（/webhook/...）</div>
-    </div>
-  </div>
-
   <div class="setting-section">
     <div class="setting-title">🎬 Pexels 真實影片</div>
     <div class="setting-field">
@@ -548,14 +510,9 @@ textarea.cell-input{
 const CFG = {
   aiScriptWorker: '',
   geminiModel:    'gemini-3.6-flash',
-  fishWebhook:    'https://n8n.alice55505.dpdns.org/webhook/fish-audio-tts',
   fishVoiceA:    '',
   fishVoiceB:    '',
-  cloneWebhook:  'https://n8n.alice55505.dpdns.org/webhook/clone-voice',
   pexels:        'JhBod0T1Ajqv8walrG37Hac10Nz0IodXv92yAfyoOwzhIOuG6FFXvUrq',
-  assetsSessionId: null,
-  uploadAssetsWebhook: 'https://n8n.alice55505.dpdns.org/webhook/upload-assets',
-  composeWebhook:      'https://n8n.alice55505.dpdns.org/webhook/compose-dialog',
 };
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
@@ -604,10 +561,7 @@ function syncSettingsFields(){
     's-gemini-model': 'geminiModel',
     's-fish-voice-a': 'fishVoiceA',
     's-fish-voice-b': 'fishVoiceB',
-    's-fish-webhook': 'fishWebhook',
-    's-compose-webhook': 'composeWebhook',
     's-pexels': 'pexels',
-    's-upload-assets-webhook': 'uploadAssetsWebhook',
   };
   Object.keys(fields).forEach(function(id){
     var el = document.getElementById(id);
@@ -1229,141 +1183,6 @@ function renderAssets(){
   }).join('');
 }
 
-// ── 真實影片：呼叫 n8n 合成影片+配音 ───────────────────────────────────────
-async function synthesizeSceneVideo(rowId){
-  var r = rows.find(function(r){ return r.id===rowId; });
-  if(!r) return;
-  var webhook = CFG.composeWebhook;
-  if(!webhook){ alert('請先在 API 設定填入 Compose Webhook URL'); return; }
-  if(!r.videoPreview){ alert('此鏡次沒有影片素材'); return; }
-  if(!r.voiceAudio){   alert('此鏡次沒有配音，請先執行配音'); return; }
-  var btn      = document.getElementById('synth-btn-'+rowId);
-  var statusEl = document.getElementById('synth-status-'+rowId);
-  function setStatus(msg, color){ if(statusEl){ statusEl.textContent=msg; statusEl.style.color=color||'var(--muted)'; } }
-  if(btn) btn.disabled = true;
-  setStatus('⏳ 準備音頻資料...', 'var(--amber)');
-  try {
-    function urlToBase64(url){
-      return new Promise(function(resolve, reject){
-        var xhr = new XMLHttpRequest();
-        xhr.open('GET', url, true);
-        xhr.responseType = 'blob';
-        xhr.onload = function(){
-          var reader = new FileReader();
-          reader.onload = function(e){ resolve(e.target.result.split(',')[1]); };
-          reader.onerror = reject;
-          reader.readAsDataURL(xhr.response);
-        };
-        xhr.onerror = reject;
-        xhr.send();
-      });
-    }
-    var audioBase64 = null;
-    try { audioBase64 = await urlToBase64(r.voiceAudio); } catch(e){ throw new Error('音頻轉換失敗：'+e.message); }
-    setStatus('⏳ 準備影片資料（可能需要數秒）...', 'var(--amber)');
-    var videoBase64 = null;
-    var videoUrlForN8n = r.videoPreview;
-    if(r.videoPreview && r.videoPreview.startsWith('blob:')){
-      try { videoBase64 = await urlToBase64(r.videoPreview); videoUrlForN8n = null; } catch(e){ throw new Error('影片轉換失敗：'+e.message); }
-    }
-    setStatus('⏳ 傳送到 n8n 合成中（請稍候）...', 'var(--cyan)');
-    var payload = { id:r.id, sceneType:r.sceneType, video_url:videoUrlForN8n, videoBase64:videoBase64, audioBase64:audioBase64, dialog:r.dialog||'' };
-    var res = await fetch(webhook, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
-    if(!res.ok) throw new Error('n8n 回傳錯誤 HTTP ' + res.status);
-    var ct2 = res.headers.get('content-type') || '';
-    var videoUrl2, srtUrl2;
-    if(ct2.includes('video') || ct2.includes('octet-stream')){
-      videoUrl2 = URL.createObjectURL(await res.blob());
-    } else {
-      var text2 = await res.text();
-      if(!text2 || !text2.trim()) throw new Error('n8n 回傳空回應，請確認 workflow 已 Publish');
-      var data2;
-      try { data2 = JSON.parse(text2); } catch(e){ throw new Error('n8n 回傳非 JSON：' + text2.substring(0,120)); }
-      var vb64b = data2.videoBase64 || data2.video_base64 || (Array.isArray(data2) && (data2[0].videoBase64 || data2[0].video_base64));
-      if(!vb64b) throw new Error('n8n 未回傳影片資料，回傳內容：' + JSON.stringify(data2).substring(0,150));
-      var bytes2 = atob(vb64b);
-      var arr2   = new Uint8Array(bytes2.length);
-      for(var b2=0; b2<bytes2.length; b2++) arr2[b2] = bytes2.charCodeAt(b2);
-      videoUrl2 = URL.createObjectURL(new Blob([arr2], { type:'video/mp4' }));
-      var sb64b = data2.srtBase64 || data2.srt_base64 || (Array.isArray(data2) && (data2[0].srtBase64 || data2[0].srt_base64));
-      if(sb64b){ srtUrl2 = URL.createObjectURL(new Blob([atob(sb64b)], { type:'text/plain;charset=utf-8' })); }
-    }
-    r.synthVideoUrl = videoUrl2;
-    if(srtUrl2) r.synthSrtUrl = srtUrl2;
-    setStatus('✅ 合成完成！', 'var(--green)');
-    renderAssets();
-  } catch(e){
-    setStatus('✕ 失敗：' + e.message, 'var(--red)');
-    if(btn) btn.disabled = false;
-  }
-}
-
-// ── 對話模式：呼叫 n8n 合成完整影片 ─────────────────────────────────────────
-async function synthesizeDialogVideo(rowId){
-  var r = rows.find(function(r){ return r.id===rowId; });
-  if(!r || !r.voiceLines || !r.voiceLines.length){ alert('沒有配音資料，請先完成配音'); return; }
-  var webhook = CFG.composeWebhook;
-  if(!webhook){ alert('請先在 API 設定填入 Compose Webhook URL'); return; }
-  var btn      = document.getElementById('synth-btn-'+rowId);
-  var statusEl = document.getElementById('synth-status-'+rowId);
-  function setStatus(msg, color){ if(statusEl){ statusEl.textContent = msg; statusEl.style.color = color||'var(--muted)'; } }
-  if(btn) btn.disabled = true;
-  setStatus('⏳ 準備音頻資料...', 'var(--amber)');
-  try {
-    function blobUrlToBase64(url){
-      return new Promise(function(resolve, reject){
-        var xhr = new XMLHttpRequest();
-        xhr.open('GET', url, true);
-        xhr.responseType = 'blob';
-        xhr.onload = function(){
-          var reader = new FileReader();
-          reader.onload = function(e){ resolve(e.target.result.split(',')[1]); };
-          reader.onerror = reject;
-          reader.readAsDataURL(xhr.response);
-        };
-        xhr.onerror = reject;
-        xhr.send();
-      });
-    }
-    var lines = [];
-    for(var i=0; i<r.voiceLines.length; i++){
-      var line = r.voiceLines[i];
-      var audioBase64 = null;
-      if(line.audioUrl){ try { audioBase64 = await blobUrlToBase64(line.audioUrl); } catch(e){} }
-      lines.push({ speaker: line.speaker, dialog: line.dialog, audioBase64: audioBase64 });
-    }
-    setStatus('⏳ 傳送到 n8n 合成中（請稍候，可能需要 30~120 秒）...', 'var(--cyan)');
-    var payload = { id:r.id, sceneType:r.sceneType, assetsSessionId:CFG.assetsSessionId||null, lines:lines };
-    var res = await fetch(webhook, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
-    if(!res.ok) throw new Error('n8n 回傳錯誤 HTTP ' + res.status);
-    var ct = res.headers.get('content-type') || '';
-    var videoUrl, srtUrl;
-    if(ct.includes('video') || ct.includes('octet-stream')){
-      videoUrl = URL.createObjectURL(await res.blob());
-    } else {
-      var text = await res.text();
-      if(!text || !text.trim()) throw new Error('n8n 回傳空回應，請確認 workflow 已 Publish');
-      var data;
-      try { data = JSON.parse(text); } catch(e){ throw new Error('n8n 回傳非 JSON：' + text.substring(0,120)); }
-      var vb64 = data.videoBase64 || data.video_base64 || (Array.isArray(data) && (data[0].videoBase64 || data[0].video_base64));
-      if(!vb64) throw new Error('n8n 未回傳影片資料，回傳內容：' + JSON.stringify(data).substring(0,150));
-      var bytes = atob(vb64);
-      var arr   = new Uint8Array(bytes.length);
-      for(var b=0; b<bytes.length; b++) arr[b] = bytes.charCodeAt(b);
-      videoUrl = URL.createObjectURL(new Blob([arr], { type:'video/mp4' }));
-      var sb64 = data.srtBase64 || data.srt_base64 || (Array.isArray(data) && (data[0].srtBase64 || data[0].srt_base64));
-      if(sb64){ srtUrl = URL.createObjectURL(new Blob([atob(sb64)], { type:'text/plain;charset=utf-8' })); }
-    }
-    r.synthVideoUrl = videoUrl;
-    if(srtUrl) r.synthSrtUrl = srtUrl;
-    setStatus('✅ 合成完成！', 'var(--green)');
-    renderAssets();
-  } catch(e){
-    setStatus('✕ 失敗：' + e.message, 'var(--red)');
-    if(btn) btn.disabled = false;
-  }
-}
-
 // ── FFmpeg.wasm ────────────────────────────────────────────────────────────────
 var _ffmpeg = null;
 async function loadFFmpeg(){
@@ -1587,8 +1406,6 @@ function getVal(id, fallback){
 function saveSettings(){
   CFG.aiScriptWorker       = getVal('s-ai-script-worker',      CFG.aiScriptWorker);
   CFG.geminiModel          = getVal('s-gemini-model',           CFG.geminiModel);
-  CFG.fishWebhook          = getVal('s-fish-webhook',          CFG.fishWebhook);
-  CFG.composeWebhook       = getVal('s-compose-webhook',       CFG.composeWebhook);
   // ✅ 從設定頁的新欄位讀取 Voice ID（若欄位存在才覆蓋）
   // ── 持久化到 localStorage ────────────────────────────
   var va = getVal('s-fish-voice-a', null);
@@ -1596,7 +1413,6 @@ function saveSettings(){
   if(va !== null) CFG.fishVoiceA = va;
   if(vb !== null) CFG.fishVoiceB = vb;
   CFG.pexels               = getVal('s-pexels',                CFG.pexels);
-  CFG.uploadAssetsWebhook  = getVal('s-upload-assets-webhook', CFG.uploadAssetsWebhook);
   // 同步到 AB 設定頁的欄位
   var ela = document.getElementById('ab-fish-voice-a');
   var elb = document.getElementById('ab-fish-voice-b');
@@ -1606,12 +1422,9 @@ function saveSettings(){
   try {
     localStorage.setItem('cfg_aiScriptWorker',      CFG.aiScriptWorker);
     localStorage.setItem('cfg_geminiModel',         CFG.geminiModel);
-    localStorage.setItem('cfg_fishWebhook',         CFG.fishWebhook);
-    localStorage.setItem('cfg_composeWebhook',      CFG.composeWebhook);
     localStorage.setItem('cfg_fishVoiceA',          CFG.fishVoiceA);
     localStorage.setItem('cfg_fishVoiceB',          CFG.fishVoiceB);
     localStorage.setItem('cfg_pexels',              CFG.pexels);
-    localStorage.setItem('cfg_uploadAssetsWebhook', CFG.uploadAssetsWebhook);
   } catch(e){}
   updateLeds();
   alert('✓ 設定已儲存（下次重開頁面會自動載入）');
@@ -1620,7 +1433,7 @@ function saveSettings(){
 function updateLeds(){
   var tl  = document.getElementById('dot-tts-led');
   var pl  = document.getElementById('dot-pexels-led');
-  if(tl){  tl.style.background=CFG.fishWebhook?'var(--cyan)':'rgba(255,255,255,0.15)'; tl.classList.toggle('on',!!CFG.fishWebhook); }
+  if(tl){  tl.style.background=CFG.aiScriptWorker?'var(--cyan)':'rgba(255,255,255,0.15)'; tl.classList.toggle('on',!!CFG.aiScriptWorker); }
   if(pl){  pl.style.background=CFG.pexels?'var(--green)':'rgba(255,255,255,0.15)';     pl.classList.toggle('on',!!CFG.pexels); }
 }
 
@@ -1815,8 +1628,8 @@ async function changeSceneVideo(id){
 async function regenerateRowVoice(id){
   var r = rows.find(function(r){ return r.id===id; });
   if(!r) return;
-  if(!CFG.fishWebhook){
-    alert('❌ 尚未設定 Fish Audio Webhook URL\n\n請先到「API 設定」頁填入 n8n Webhook URL 並按「儲存設定」');
+  if(!CFG.aiScriptWorker){
+    alert('❌ 尚未設定 Worker URL\n\n請先到「API 設定」頁填入 Worker URL 並按「儲存設定」');
     return;
   }
   if(!CFG.fishVoiceA && !CFG.fishVoiceB){
@@ -1831,59 +1644,6 @@ async function regenerateRowVoice(id){
     await runVoice(r);
   }
   if(btn){ btn.disabled = false; btn.textContent = '🎙 重新生成配音'; }
-}
-
-// ── 上傳角色素材到 n8n 伺服器 ────────────────────────────────────────────────
-async function uploadAssetsToServer(){
-  var btn = document.getElementById('btn-upload-assets');
-  var statusEl = document.getElementById('upload-assets-status');
-  var AS = PLAYER_VIDEOS;
-  var hasAny = AS.a.talk || AS.a.idle || AS.b.talk || AS.b.idle || AS.a.pray || AS.b.pray;
-  if(!hasAny){ alert('請先在上方上傳 A/B 角色的說話影片或靜止圖片'); return; }
-  if(!CFG.uploadAssetsWebhook){ alert('請先填入 Upload Assets Webhook URL'); return; }
-  btn.disabled = true;
-  statusEl.textContent = '上傳中...';
-  statusEl.style.color = 'var(--amber)';
-  var sid = 'ab_' + Date.now();
-  var tasks = [];
-  for(var role of ['a','b']){
-    for(var type of ['talk','idle','pray']){
-      var url = AS[role][type];
-      if(!url) continue;
-      tasks.push({ role, type, url });
-    }
-  }
-  var fileTypeMap = { 'a_talk':'talk_a', 'a_idle':'idle_a', 'b_talk':'talk_b', 'b_idle':'idle_b', 'a_pray':'pray_a', 'b_pray':'pray_b' };
-  var uploaded = 0;
-  for(var i=0; i<tasks.length; i++){
-    var t = tasks[i];
-    var ftype = fileTypeMap[t.role+'_'+t.type] || t.type;
-    statusEl.textContent = '上傳 ' + ftype + '... (' + (i+1) + '/' + tasks.length + ')';
-    try {
-      var blob = await fetch(t.url).then(function(r){ return r.blob(); });
-      var reader = new FileReader();
-      var b64 = await new Promise(function(resolve, reject){
-        reader.onload = function(e){ resolve(e.target.result.split(',')[1]); };
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      });
-      var res = await Promise.race([
-        fetch(CFG.uploadAssetsWebhook, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ assetsSessionId:sid, fileType:ftype, fileBase64:b64 }) }),
-        new Promise(function(_, reject){ setTimeout(function(){ reject(new Error('上傳超時')); }, 120000); })
-      ]);
-      if(!res.ok) throw new Error('HTTP ' + res.status);
-      uploaded++;
-    } catch(e){
-      statusEl.textContent = '✕ 上傳失敗：' + e.message;
-      statusEl.style.color = 'var(--red)';
-      btn.disabled = false;
-      return;
-    }
-  }
-  CFG.assetsSessionId = sid;
-  statusEl.textContent = '✅ 上傳完成（' + uploaded + ' 個檔案），Session ID：' + sid;
-  statusEl.style.color = 'var(--green)';
-  btn.disabled = false;
 }
 
 async function runAll(){
@@ -1901,7 +1661,7 @@ async function runAll(){
 async function runDialogVoices(r){
   setRowState(r,'voice','processing');
   try {
-    if(!CFG.fishWebhook) throw new Error('尚未設定 Fish Audio Webhook URL');
+    if(!CFG.aiScriptWorker) throw new Error('尚未設定 Worker URL（API 設定頁）');
     if(!CFG.fishVoiceA && !CFG.fishVoiceB) throw new Error('請先在「AB 設定」上傳音檔克隆 A/B 角色聲音');
     var dialog = r.dialog.replace(/\\n/g,'\n');
     var lines = dialog.split('\n').map(function(l){ return l.trim(); }).filter(Boolean);
@@ -1919,7 +1679,7 @@ async function runDialogVoices(r){
       var voiceId = s.speaker==='B' ? CFG.fishVoiceB : CFG.fishVoiceA;
       if(!voiceId){ r.voiceLines.push({ speaker:s.speaker, dialog:s.dialog, audioUrl:null, error:'未設定 Voice ID' }); continue; }
       try {
-        var res = await fetch(CFG.fishWebhook, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ id:r.id+'_'+i, speaker:s.speaker, text:s.dialog, reference_id:voiceId, speed:0.8 }) });
+        var res = await fetch(ttsUrl(), { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ id:r.id+'_'+i, speaker:s.speaker, text:s.dialog, reference_id:voiceId, speed:0.8 }) });
         if(!res.ok) throw new Error('HTTP '+res.status);
         var ct = res.headers.get('content-type')||'';
         var audioUrl;
@@ -1944,16 +1704,15 @@ async function runDialogVoices(r){
     }
     r.voiceAudio = (r.voiceLines.find(function(l){return l.audioUrl;})||{}).audioUrl || null;
     setRowState(r,'voice','done');
-    if(CFG.composeWebhook){ synthesizeDialogVideo(r.id); }
-    else {
-      var cell = document.getElementById('status-'+r.id);
-      if(cell) cell.innerHTML += '<br><span onclick="switchTab(\'assets\')" style="font-size:9px;color:var(--cyan);cursor:pointer;text-decoration:underline">→ 素材庫合成</span>';
-    }
+    var cell = document.getElementById('status-'+r.id);
+    if(cell) cell.innerHTML += '<br><span onclick="switchTab(\'assets\')" style="font-size:9px;color:var(--cyan);cursor:pointer;text-decoration:underline">→ 素材庫合成</span>';
   } catch(e){
     r.voiceError = e.message;
     setRowState(r,'voice','error');
   }
 }
+
+function ttsUrl(){ return CFG.aiScriptWorker.replace(/\/+$/, '') + '/tts'; }
 
 // ── VIDEO (Pexels) ──────────────────────────────────────────────────────────
 async function runVoice(r, targetRow, role){
@@ -1961,12 +1720,12 @@ async function runVoice(r, targetRow, role){
   role = role || r.speaker || 'A';
   setRowState(targetRow,'voice','processing');
   try {
-    if(!CFG.fishWebhook) throw new Error('尚未設定 TTS Webhook URL（API 設定頁）');
+    if(!CFG.aiScriptWorker) throw new Error('尚未設定 Worker URL（API 設定頁）');
     var voiceId = role === 'B' ? CFG.fishVoiceB : CFG.fishVoiceA;
     if(!voiceId) throw new Error('請先在「AB 設定」上傳音檔克隆 '+role+' 角色的聲音');
     var text = extractSpeakerText(r.dialog, role);
     if(!text) throw new Error('找不到角色 '+role+' 的台詞');
-    var res = await fetch(CFG.fishWebhook, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ id:r.id, speaker:role, text:text, reference_id:voiceId, speed:0.8 }) });
+    var res = await fetch(ttsUrl(), { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ id:r.id, speaker:role, text:text, reference_id:voiceId, speed:0.8 }) });
     if(!res.ok) throw new Error('Fish Audio HTTP '+res.status);
     var ct = res.headers.get('content-type') || '';
     var audioUrl;
@@ -1991,7 +1750,6 @@ async function runVoice(r, targetRow, role){
     if(!audioUrl) throw new Error('未取得音頻 URL');
     targetRow.voiceAudio = audioUrl;
     setRowState(targetRow,'voice','done');
-    if(CFG.composeWebhook && targetRow.videoStatus==='done' && targetRow.videoPreview){ synthesizeSceneVideo(targetRow.id); }
   } catch(e){
     setRowState(targetRow,'voice','error', e.message);
   }
@@ -2021,7 +1779,6 @@ async function runVideo(r){
     var file = pick.video_files.sort(function(a,b){ return (b.width||0)-(a.width||0); })[0];
     r.videoPreview = file.link; r.videoDuration = pick.duration; r.videoPhotographer = pick.user&&pick.user.name; r.videoPexelsUrl = pick.url;
     setRowState(r,'video','done');
-    if(CFG.composeWebhook && r.voiceStatus==='done' && r.voiceAudio){ synthesizeSceneVideo(r.id); }
   } catch(e) {
     r.videoError = e.message;
     setRowState(r,'video','error');
@@ -2100,40 +1857,6 @@ function miniFinish(rowId){
 // ── 數字人播放器 ──────────────────────────────────────────────────────────────
 var PLAYER_VIDEOS = { a:{talk:null,idle:null,pray:null}, b:{talk:null,idle:null,pray:null} };
 
-async function cloneVoice(role, input){
-  var file = input.files[0]; if(!file) return;
-  var btnId = 'clone-btn-' + role.toLowerCase();
-  var inputId = 'ab-fish-voice-' + role.toLowerCase();
-  var btn = document.getElementById(btnId);
-  var originalText = btn ? btn.textContent : '';
-  if(btn) btn.textContent = '⏳ 克隆中…';
-  try {
-    var ab = await file.arrayBuffer();
-    var b64 = btoa(String.fromCharCode(...new Uint8Array(ab)));
-    var res = await fetch(CFG.cloneWebhook, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: role + '_' + Date.now(), audioBase64: b64 })
-    });
-    if(!res.ok) throw new Error('HTTP ' + res.status);
-    var data = await res.json();
-    var voiceId = data.voice_id;
-    if(!voiceId) throw new Error(JSON.stringify(data));
-    if(role === 'A') CFG.fishVoiceA = voiceId;
-    else CFG.fishVoiceB = voiceId;
-    var el = document.getElementById(inputId);
-    if(el) el.value = voiceId;
-    var sel = document.getElementById('s-fish-voice-' + role.toLowerCase());
-    if(sel) sel.value = voiceId;
-    if(btn) btn.textContent = '✅ 克隆成功！';
-    setTimeout(function(){ if(btn) btn.textContent = originalText; }, 3000);
-  } catch(e) {
-    if(btn) btn.textContent = originalText;
-    alert('克隆失敗：' + e.message);
-  }
-  input.value = '';
-}
-
 function loadPlayerVideo(role, type, input){
   var file = input.files[0]; if(!file) return;
   var url = URL.createObjectURL(file);
@@ -2171,12 +1894,11 @@ function loadPlayerImage(role, type, input){
     if(CFG.geminiModel === 'gemini-2.5-flash') CFG.geminiModel = 'gemini-3.6-flash';
     // 🔒 舊版曾把 Gemini API Key 直接存在瀏覽器，現在改用 Worker 代理，清掉舊資料
     try { ls.removeItem('cfg_geminiKey'); } catch(e){}
-    load('cfg_fishWebhook',         'fishWebhook');
-    load('cfg_composeWebhook',      'composeWebhook');
+    // 舊版 n8n webhook 設定已不再使用，清掉舊資料
+    ['cfg_fishWebhook','cfg_composeWebhook','cfg_uploadAssetsWebhook'].forEach(function(k){ try { ls.removeItem(k); } catch(e){} });
     load('cfg_fishVoiceA',          'fishVoiceA');
     load('cfg_fishVoiceB',          'fishVoiceB');
     load('cfg_pexels',              'pexels');
-    load('cfg_uploadAssetsWebhook', 'uploadAssetsWebhook');
   } catch(e){}
 })();
 updateLeds();

@@ -5,7 +5,7 @@
 
 | 路徑 | 用途 |
 |---|---|
-| `POST /` | Gemini（AI 腳本生成） |
+| `POST /` | Gemini（AI 腳本生成；`stream:true` 時邊產生邊回傳，預設思考程度 low） |
 | `POST /tts` | Fish Audio 配音（原 n8n `fish-audio-tts`） |
 
 影片合成改在瀏覽器本機完成（素材庫「🎬 合成影片並下載」），不需要伺服器。

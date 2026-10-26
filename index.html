@@ -1417,13 +1417,41 @@ async function generateAIScript(){
     var res = await fetch(CFG.aiScriptWorker, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt: fullPrompt, model: model })
+      body: JSON.stringify({ prompt: fullPrompt, model: model, stream: true })
     });
     if(!res.ok){ var errText = await res.text(); throw new Error('HTTP ' + res.status + '：' + errText.substring(0,200)); }
-    var data = await res.json();
-    var parts = (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) || [];
-    var text = parts.map(function(p){ return p.text || ''; }).join('').trim();
-    if(!text) throw new Error('AI 未回傳內容：' + JSON.stringify(data).substring(0,200));
+    var resultEl = document.getElementById('ai-script-result');
+    var text = '';
+    function partsText(d){
+      var parts = (d && d.candidates && d.candidates[0] && d.candidates[0].content && d.candidates[0].content.parts) || [];
+      return parts.filter(function(p){ return !p.thought; }).map(function(p){ return p.text || ''; }).join('');
+    }
+    if((res.headers.get('content-type') || '').includes('event-stream') && res.body){
+      // 邊產生邊顯示（SSE：每段 data: {...}）
+      document.getElementById('ai-script-result-wrap').style.display = 'block';
+      resultEl.value = '';
+      var reader = res.body.getReader(), decoder = new TextDecoder(), buf = '';
+      while(true){
+        var chunk = await reader.read();
+        if(chunk.done) break;
+        buf += decoder.decode(chunk.value, { stream: true });
+        var lines = buf.split('\n'); buf = lines.pop();
+        lines.forEach(function(line){
+          if(line.indexOf('data:') !== 0) return;
+          try { text += partsText(JSON.parse(line.slice(5))); } catch(_){}
+        });
+        resultEl.value = text;
+        resultEl.scrollTop = resultEl.scrollHeight;
+        statusEl.textContent = '⏳ 生成中...（已產生 ' + text.length + ' 字）';
+      }
+      text = text.trim();
+    } else {
+      // 舊版 Worker（未支援串流）：一次回傳 JSON
+      var data = await res.json();
+      text = partsText(data).trim();
+      if(!text) throw new Error('AI 未回傳內容：' + JSON.stringify(data).substring(0,200));
+    }
+    if(!text) throw new Error('AI 未回傳內容');
     text = text.replace(/^```[a-zA-Z]*\n?/, '').replace(/```\s*$/, '').trim();
     var dataRows = parseAIScriptTable(text);
     if(!dataRows.length) throw new Error('AI 回傳內容無法解析為表格，請確認格式為「鏡次編號｜畫面描述｜素材來源｜對話內容｜影片關鍵字」');

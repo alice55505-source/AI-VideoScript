@@ -2,7 +2,7 @@
 // 不會出現在前端程式碼或 GitHub repo 裡。
 //
 // 路由：
-//   POST /      → Gemini（AI 腳本生成）
+//   POST /      → Gemini（AI 腳本生成；stream:true 時用 SSE 邊產生邊回傳）
 //   POST /tts   → Fish Audio TTS（取代原本的 n8n fish-audio-tts webhook）
 //
 // 部署方式見同目錄 README.md。
@@ -96,25 +96,51 @@ export default {
     }
     const model = (body.model && String(body.model)) || 'gemini-3.6-flash';
 
+    // stream=true：用 SSE 邊產生邊回傳，前端可即時顯示
+    const stream = body.stream === true;
     const url = 'https://generativelanguage.googleapis.com/v1beta/models/'
-      + encodeURIComponent(model) + ':generateContent?key=' + encodeURIComponent(apiKey);
+      + encodeURIComponent(model)
+      + (stream ? ':streamGenerateContent?alt=sse&key=' : ':generateContent?key=')
+      + encodeURIComponent(apiKey);
 
-    // 模型忙碌（503）時自動重試，間隔 2、4、8 秒
+    // 思考程度預設 low（較快）；body.thinkingLevel 可覆蓋，傳 'default' 則不指定
+    const thinkingLevel = body.thinkingLevel ? String(body.thinkingLevel) : 'low';
+    function geminiBody(withThinking) {
+      const req = { contents: [{ parts: [{ text: prompt }] }] };
+      if (withThinking && thinkingLevel !== 'default') {
+        req.generationConfig = { thinkingConfig: { thinkingLevel: thinkingLevel } };
+      }
+      return JSON.stringify(req);
+    }
+
+    // 模型忙碌（503）時自動重試，間隔 2、4、8 秒；
+    // 若模型不支援 thinkingLevel（400），改用不帶思考設定的請求再試
     let res;
+    let withThinking = true;
     for (let attempt = 0; ; attempt++) {
       try {
         res = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+          body: geminiBody(withThinking),
         });
       } catch (e) {
         return json({ error: '呼叫 Gemini API 失敗：' + e.message }, 502);
+      }
+      if (res.status === 400 && withThinking && thinkingLevel !== 'default') {
+        const errText = await res.clone().text();
+        if (/thinking/i.test(errText)) { withThinking = false; continue; }
       }
       if (res.status !== 503 || attempt >= 3) break;
       await new Promise(function (r) { setTimeout(r, 2000 * Math.pow(2, attempt)); });
     }
 
+    if (stream && res.ok) {
+      return new Response(res.body, {
+        status: 200,
+        headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', ...CORS_HEADERS },
+      });
+    }
     const data = await res.text();
     return new Response(data, {
       status: res.status,
